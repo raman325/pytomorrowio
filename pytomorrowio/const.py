@@ -1,7 +1,5 @@
 """Constants."""
-
 from enum import IntEnum
-
 
 HEADERS = {"content-type": "application/json"}
 
@@ -9,6 +7,9 @@ DAILY = "daily"
 HOURLY = "hourly"
 NOWCAST = "nowcast"
 FORECASTS = "forecasts"
+
+TIMESTEP_HOURLY = "1h"
+TIMESTEP_DAILY = "1d"
 
 MIN = "Min"
 MAX = "Max"

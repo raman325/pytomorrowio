@@ -1,4 +1,5 @@
 """Main module."""
+import asyncio
 from datetime import datetime, timedelta, timezone
 import json
 import logging
@@ -15,6 +16,8 @@ from .const import (
     HEADERS,
     HOURLY,
     NOWCAST,
+    TIMESTEP_DAILY,
+    TIMESTEP_HOURLY,
 )
 from .exceptions import (
     CantConnectException,
@@ -185,13 +188,13 @@ class TomorrowioV4:
                 if resp.status == 200:
                     return resp_json
                 if resp.status == 400:
-                    raise MalformedRequestException(resp_json)
+                    raise MalformedRequestException(resp_json, resp.headers)
                 elif resp.status in (401, 403):
-                    raise InvalidAPIKeyException(resp_json)
+                    raise InvalidAPIKeyException(resp_json, resp.headers)
                 elif resp.status == 429:
-                    raise RateLimitedException(resp_json)
+                    raise RateLimitedException(resp_json, resp.headers)
                 else:
-                    raise UnknownException(resp_json)
+                    raise UnknownException(resp_json, resp.headers)
 
             async with ClientSession() as session:
                 resp = await session.post(
@@ -203,13 +206,13 @@ class TomorrowioV4:
                 if resp.status == 200:
                     return resp_json
                 if resp.status == 400:
-                    raise MalformedRequestException(resp_json)
+                    raise MalformedRequestException(resp_json, resp.headers)
                 elif resp.status in (401, 403):
-                    raise InvalidAPIKeyException(resp_json)
+                    raise InvalidAPIKeyException(resp_json, resp.headers)
                 elif resp.status == 429:
-                    raise RateLimitedException(resp_json)
+                    raise RateLimitedException(resp_json, resp.headers)
                 else:
-                    raise UnknownException(resp_json)
+                    raise UnknownException(resp_json, resp.headers)
         except ClientConnectionError:
             raise CantConnectException()
 
@@ -238,9 +241,9 @@ class TomorrowioV4:
             **kwargs,
         }
         if timestep == timedelta(days=1):
-            params["timestep"] = ["1d"]
+            params["timestep"] = [TIMESTEP_DAILY]
         elif timestep == timedelta(hours=1):
-            params["timestep"] = ["1h"]
+            params["timestep"] = [TIMESTEP_HOURLY]
         elif timestep in (
             timedelta(minutes=30),
             timedelta(minutes=15),
@@ -305,10 +308,18 @@ class TomorrowioV4:
     async def realtime_and_all_forecasts(
         self,
         realtime_fields: List[str],
-        forecast_fields: List[str],
+        forecast_or_nowcast_fields: List[str],
+        hourly_fields: List[str] = None,
+        daily_fields: List[str] = None,
         nowcast_timestep: int = 5,
     ) -> Dict[str, Any]:
-        """Return realtime weather and all forecasts."""
+        """
+        Return realtime weather and all forecasts.
+
+        If `hourly_fields` and `daily_fields` are not provided,
+        `forecast_or_nowcast_fields` will be used to get nowcast, hourly, and daily
+        data.
+        """
         ret_data = {}
         data = await self._call_api(
             {
@@ -324,24 +335,61 @@ class TomorrowioV4:
         ):
             ret_data[CURRENT] = data["data"]["timelines"][0]["intervals"][0]["values"]
 
-        data = await self._call_api(
-            {
-                "timesteps": [f"{nowcast_timestep}m", "1h", "1d"],
-                "fields": forecast_fields,
-                "startTime": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
-            }
-        )
-        if "data" in data and "timelines" in data["data"]:
-            ret_data[FORECASTS] = {}
-            for timeline in data["data"]["timelines"]:
-                if timeline["timestep"] == "1d":
-                    key = DAILY
-                elif timeline["timestep"] == "1h":
-                    key = HOURLY
-                else:
-                    key = NOWCAST
-                ret_data[FORECASTS][key] = timeline["intervals"]
+        forecasts = ret_data.setdefault(FORECASTS, {})
 
+        if not hourly_fields and not daily_fields:
+            data = await self._call_api(
+                {
+                    "timesteps": [
+                        f"{nowcast_timestep}m",
+                        TIMESTEP_HOURLY,
+                        TIMESTEP_DAILY,
+                    ],
+                    "fields": forecast_or_nowcast_fields,
+                    "startTime": datetime.utcnow()
+                    .replace(tzinfo=timezone.utc)
+                    .isoformat(),
+                }
+            )
+            if "data" in data and "timelines" in data["data"]:
+                for timeline in data["data"]["timelines"]:
+                    if timeline["timestep"] == TIMESTEP_DAILY:
+                        key = DAILY
+                    elif timeline["timestep"] == TIMESTEP_HOURLY:
+                        key = HOURLY
+                    else:
+                        key = NOWCAST
+                    forecasts[key] = timeline["intervals"]
+        else:
+            data = await self._call_api(
+                {
+                    "timesteps": [f"{nowcast_timestep}m"],
+                    "fields": forecast_or_nowcast_fields,
+                    "startTime": datetime.utcnow()
+                    .replace(tzinfo=timezone.utc)
+                    .isoformat(),
+                }
+            )
+            if "data" in data and "timelines" in data["data"]:
+                forecasts[NOWCAST] = data["data"]["timelines"][0]["intervals"]
+
+            for field_list, timestep, key in (
+                (hourly_fields, TIMESTEP_HOURLY, HOURLY),
+                (daily_fields, TIMESTEP_DAILY, DAILY),
+            ):
+                if field_list:
+                    await asyncio.sleep(1)
+                    data = await self._call_api(
+                        {
+                            "timesteps": [timestep],
+                            "fields": field_list,
+                            "startTime": datetime.utcnow()
+                            .replace(tzinfo=timezone.utc)
+                            .isoformat(),
+                        }
+                    )
+                    if "data" in data and "timelines" in data["data"]:
+                        forecasts[key] = data["data"]["timelines"][0]["intervals"]
         return ret_data
 
 
@@ -399,9 +447,21 @@ class TomorrowioV4Sync(TomorrowioV4):
         self,
         realtime_fields: List[str],
         forecast_fields: List[str],
+        hourly_fields: List[str] = None,
+        daily_fields: List[str] = None,
         nowcast_timestep: int = 5,
     ) -> Dict[str, Any]:
-        """Return realtime weather and all forecasts."""
+        """
+        Return realtime weather and all forecasts.
+
+        If `hourly_fields` and `daily_fields` are not provided,
+        `forecast_or_nowcast_fields` will be used to get nowcast, hourly, and daily
+        data.
+        """
         return await super().realtime_and_all_forecasts(
-            realtime_fields, forecast_fields, nowcast_timestep=nowcast_timestep
+            realtime_fields,
+            forecast_fields,
+            hourly_fields=hourly_fields,
+            daily_fields=daily_fields,
+            nowcast_timestep=nowcast_timestep,
         )
