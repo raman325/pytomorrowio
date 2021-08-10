@@ -1,5 +1,5 @@
 Welcome to Python Tomorrow.io API's documentation!
-======================================
+==================================================
 
 .. toctree::
    :maxdepth: 2

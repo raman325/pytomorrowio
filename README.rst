@@ -1,6 +1,6 @@
-====================
+======================
 Python Tomorrow.io API
-====================
+======================
 
 
 .. image:: https://img.shields.io/pypi/v/pytomorrowio.svg
