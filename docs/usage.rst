@@ -2,6 +2,6 @@
 Usage
 =====
 
-To use Python ClimaCell API in a project::
+To use Python Tomorrow.io API in a project::
 
     import pytomorrowio
