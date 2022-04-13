@@ -9,4 +9,7 @@ Sphinx==1.8.5
 twine==1.14.0
 isort
 black
+pylint
+pytest
+mypy
 -r requirements.txt
