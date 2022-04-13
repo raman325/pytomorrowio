@@ -120,7 +120,7 @@ class TomorrowioV4:
         "Return available fields for a given timestep."
         if timestep not in VALID_TIMESTEPS:
             raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
-        fields = process_v4_fields(list(FIELDS_V4.keys()), timestep, write_log=False)
+        fields = process_v4_fields(list(FIELDS_V4), timestep, write_log=False)
 
         if types:
             return [field for field in fields if FIELDS_V4[field].type in types]
