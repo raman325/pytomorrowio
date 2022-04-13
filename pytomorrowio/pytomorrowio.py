@@ -1,6 +1,7 @@
 """Main module."""
 import asyncio
 from datetime import datetime, timedelta, timezone
+from http import HTTPStatus
 import json
 import logging
 from typing import Any, Dict, List, Optional, Union
@@ -11,13 +12,16 @@ from .const import (
     BASE_URL_V4,
     CURRENT,
     DAILY,
-    FIELDS_V4,
     FORECASTS,
     HEADERS,
     HOURLY,
+    INSTANT,
     NOWCAST,
+    ONE_DAY,
+    ONE_HOUR,
     TIMESTEP_DAILY,
     TIMESTEP_HOURLY,
+    VALID_TIMESTEPS,
 )
 from .exceptions import (
     CantConnectException,
@@ -27,57 +31,31 @@ from .exceptions import (
     RateLimitedException,
     UnknownException,
 )
+from .fields import FIELDS_V4
 from .helpers import async_to_sync
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def process_v4_fields(fields: List[str], timestep: str) -> str:
+def process_v4_fields(
+    fields: List[str], timestep: timedelta, write_log: bool = True
+) -> List[str]:
     """
     Filter v4 field list to only include valid fields for a given endpoint.
 
-    Logs a warning when fields get filtered out.
+    Optionally logs a warning when fields get filtered out.
     """
     valid_fields = [field for field in fields if field in FIELDS_V4]
-    if len(valid_fields) < len(fields):
+    if write_log and len(valid_fields) < len(fields):
         _LOGGER.warning(
             "Removed invalid fields: %s", list(set(fields) - set(valid_fields))
         )
-
-    if timestep == timedelta(days=1):
-        processed_fields = [
-            field for field in valid_fields if FIELDS_V4[field]["timestep"][1] == 360
-        ]
-    elif timestep == timedelta(hours=1):
-        processed_fields = [
-            field for field in valid_fields if FIELDS_V4[field]["timestep"][1] >= 108
-        ]
-    elif timestep in (
-        timedelta(minutes=30),
-        timedelta(minutes=15),
-        timedelta(minutes=5),
-        timedelta(minutes=1),
-    ):
-        processed_fields = [
-            field for field in valid_fields if FIELDS_V4[field]["timestep"][1] >= 6
-        ]
-    elif timestep == timedelta(0):
-        processed_fields = [
-            field
-            for field in valid_fields
-            if FIELDS_V4[field]["timestep"][0] <= 0
-            and FIELDS_V4[field]["timestep"][1] >= 0
-        ]
-    elif timestep < timedelta(0):
-        processed_fields = [
-            field for field in valid_fields if FIELDS_V4[field]["timestep"][0] < 0
-        ]
-    else:
-        raise InvalidTimestep
-
-    if len(processed_fields) < len(valid_fields):
+    processed_fields = [
+        field for field in valid_fields if timestep <= FIELDS_V4[field].max_timestep
+    ]
+    if write_log and len(processed_fields) < len(valid_fields):
         _LOGGER.warning(
-            "Remove fields not available for `%s` timestep: %s",
+            "Removed fields not available for `%s` timestep: %s",
             timestep,
             list(set(valid_fields) - set(processed_fields)),
         )
@@ -105,7 +83,7 @@ class TomorrowioV4:
         """Initialize Tomorrow.io API object."""
         if unit_system.lower() not in ("metric", "imperial", "si", "us"):
             raise ValueError("`unit_system` must be `metric` or `imperial`")
-        elif unit_system.lower() == "si":
+        if unit_system.lower() == "si":
             unit_system = "metric"
         elif unit_system.lower() == "us":
             unit_system = "imperial"
@@ -125,7 +103,7 @@ class TomorrowioV4:
         """Converts general field list into fields with measurements."""
         field_list = []
         for field in fields:
-            measurements = FIELDS_V4[field]["measurements"]
+            measurements = FIELDS_V4[field].measurements
             if len(measurements) < 2:
                 field_list.append(field)
             else:
@@ -137,41 +115,15 @@ class TomorrowioV4:
 
     @staticmethod
     def available_fields(
-        timestep: timedelta, types: Optional[List] = None
+        timestep: timedelta, types: Optional[List[str]] = None
     ) -> List[str]:
         "Return available fields for a given timestep."
-        if timestep == timedelta(days=1):
-            fields = [
-                field for field in FIELDS_V4 if FIELDS_V4[field]["timestep"][1] == 360
-            ]
-        elif timestep == timedelta(hours=1):
-            fields = [
-                field for field in FIELDS_V4 if FIELDS_V4[field]["timestep"][1] >= 108
-            ]
-        elif timestep in (
-            timedelta(minutes=30),
-            timedelta(minutes=15),
-            timedelta(minutes=5),
-            timedelta(minutes=1),
-        ):
-            fields = [
-                field for field in FIELDS_V4 if FIELDS_V4[field]["timestep"][1] >= 6
-            ]
-        elif timestep in (timedelta(0), CURRENT):
-            fields = [
-                field
-                for field in FIELDS_V4
-                if FIELDS_V4[field][0] <= 0 and FIELDS_V4[field]["timestep"][1] >= 0
-            ]
-        elif timestep < timedelta(0):
-            fields = [
-                field for field in FIELDS_V4 if FIELDS_V4[field]["timestep"][0] < 0
-            ]
-        else:
-            raise InvalidTimestep
+        if timestep not in VALID_TIMESTEPS:
+            raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
+        fields = process_v4_fields(list(FIELDS_V4.keys()), timestep, write_log=False)
 
         if types:
-            return [field for field in fields if FIELDS_V4[field]["type"] in types]
+            return [field for field in fields if FIELDS_V4[field].type in types]
 
         return fields
 
@@ -179,48 +131,38 @@ class TomorrowioV4:
         """Call Tomorrow.io API."""
         try:
             if self._session:
-                resp = await self._session.post(
-                    BASE_URL_V4,
-                    headers=self._headers,
-                    data=json.dumps({**self._params, **params}),
-                )
-                resp_json = await resp.json()
-                if resp.status == 200:
-                    return resp_json
-                if resp.status == 400:
-                    raise MalformedRequestException(resp_json, resp.headers)
-                elif resp.status in (401, 403):
-                    raise InvalidAPIKeyException(resp_json, resp.headers)
-                elif resp.status == 429:
-                    raise RateLimitedException(resp_json, resp.headers)
-                else:
-                    raise UnknownException(resp_json, resp.headers)
+                return await self._make_call(params, self._session)
 
             async with ClientSession() as session:
-                resp = await session.post(
-                    BASE_URL_V4,
-                    headers=self._headers,
-                    data=json.dumps({**self._params, **params}),
-                )
-                resp_json = await resp.json()
-                if resp.status == 200:
-                    return resp_json
-                if resp.status == 400:
-                    raise MalformedRequestException(resp_json, resp.headers)
-                elif resp.status in (401, 403):
-                    raise InvalidAPIKeyException(resp_json, resp.headers)
-                elif resp.status == 429:
-                    raise RateLimitedException(resp_json, resp.headers)
-                else:
-                    raise UnknownException(resp_json, resp.headers)
-        except ClientConnectionError:
-            raise CantConnectException()
+                return await self._make_call(params, session)
+
+        except ClientConnectionError as error:
+            raise CantConnectException() from error
+
+    async def _make_call(
+        self, params: Dict[str, Any], session: ClientSession
+    ) -> Dict[str, Any]:
+        resp = await session.post(
+            BASE_URL_V4,
+            headers=self._headers,
+            data=json.dumps({**self._params, **params}),
+        )
+        resp_json = await resp.json()
+        if resp.status == HTTPStatus.OK:
+            return resp_json
+        if resp.status == HTTPStatus.BAD_REQUEST:
+            raise MalformedRequestException(resp_json, resp.headers)
+        if resp.status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
+            raise InvalidAPIKeyException(resp_json, resp.headers)
+        if resp.status == HTTPStatus.TOO_MANY_REQUESTS:
+            raise RateLimitedException(resp_json, resp.headers)
+        raise UnknownException(resp_json, resp.headers)
 
     async def realtime(self, fields: List[str]) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
         return await self._call_api(
             {
-                "fields": process_v4_fields(fields, timedelta(0)),
+                "fields": process_v4_fields(fields, INSTANT),
                 "timesteps": ["current"],
             }
         )
@@ -232,37 +174,34 @@ class TomorrowioV4:
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Return forecast data from Tomorrow.io's API for a given time period."""
-        params = {
-            "fields": self.convert_fields_to_measurements(
-                process_v4_fields(fields, timestep)
-            ),
+        if timestep not in VALID_TIMESTEPS:
+            raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
+        fields = process_v4_fields(fields, timestep)
+        if timestep > ONE_HOUR:
+            fields = self.convert_fields_to_measurements(fields)
+
+        params: Dict[str, Any] = {
+            "fields": fields,
             **kwargs,
         }
-        if timestep == timedelta(days=1):
+        if timestep == ONE_DAY:
             params["timestep"] = [TIMESTEP_DAILY]
-        elif timestep == timedelta(hours=1):
+        elif timestep == ONE_HOUR:
             params["timestep"] = [TIMESTEP_HOURLY]
-        elif timestep in (
-            timedelta(minutes=30),
-            timedelta(minutes=15),
-            timedelta(minutes=5),
-            timedelta(minutes=1),
-        ):
-            params["timestep"] = [f"{int(timestep.total_seconds()/60)}m"]
         else:
-            raise InvalidTimestep
+            params["timestep"] = [f"{int(timestep.total_seconds()/60)}m"]
 
         if start_time:
             if not start_time.tzinfo:
                 start_time.replace(tzinfo=timezone.utc)
-            params["startTime"] = f"{start_time.replace(microsecond=0).isoformat()}"
+            params["startTime"] = start_time.replace(microsecond=0).isoformat()
         else:
-            start_time = datetime.utcnow().replace(tzinfo=timezone.utc)
+            start_time = datetime.now(tz=timezone.utc)
         if duration:
             end_time = (start_time + duration).replace(microsecond=0)
-            params["endTime"] = f"{end_time.isoformat()}"
+            params["endTime"] = end_time.isoformat()
 
         return await self._call_api(params)
 
@@ -291,7 +230,7 @@ class TomorrowioV4:
     ) -> Dict[str, Any]:
         """Return daily forecast data from Tomorrow.io's API for a given time period."""
         return await self._forecast(
-            timedelta(days=1), fields, start_time=start_time, duration=duration
+            ONE_DAY, fields, start_time=start_time, duration=duration
         )
 
     async def forecast_hourly(
@@ -302,7 +241,7 @@ class TomorrowioV4:
     ) -> Dict[str, Any]:
         """Return hourly forecast data from Tomorrow.io's API for a given time period."""
         return await self._forecast(
-            timedelta(hours=1), fields, start_time=start_time, duration=duration
+            ONE_HOUR, fields, start_time=start_time, duration=duration
         )
 
     async def realtime_and_all_forecasts(
@@ -336,6 +275,7 @@ class TomorrowioV4:
             ret_data[CURRENT] = data["data"]["timelines"][0]["intervals"][0]["values"]
 
         forecasts = ret_data.setdefault(FORECASTS, {})
+        start_time = datetime.now(tz=timezone.utc).isoformat()
 
         if not hourly_fields and not daily_fields:
             data = await self._call_api(
@@ -346,9 +286,7 @@ class TomorrowioV4:
                         TIMESTEP_DAILY,
                     ],
                     "fields": forecast_or_nowcast_fields,
-                    "startTime": datetime.utcnow()
-                    .replace(tzinfo=timezone.utc)
-                    .isoformat(),
+                    "startTime": start_time,
                 }
             )
             if "data" in data and "timelines" in data["data"]:
@@ -365,9 +303,7 @@ class TomorrowioV4:
                 {
                     "timesteps": [f"{nowcast_timestep}m"],
                     "fields": forecast_or_nowcast_fields,
-                    "startTime": datetime.utcnow()
-                    .replace(tzinfo=timezone.utc)
-                    .isoformat(),
+                    "startTime": start_time,
                 }
             )
             if "data" in data and "timelines" in data["data"]:
@@ -383,9 +319,7 @@ class TomorrowioV4:
                         {
                             "timesteps": [timestep],
                             "fields": field_list,
-                            "startTime": datetime.utcnow()
-                            .replace(tzinfo=timezone.utc)
-                            .isoformat(),
+                            "startTime": start_time,
                         }
                     )
                     if "data" in data and "timelines" in data["data"]:
@@ -418,7 +352,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         timestep: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Return forecast data from Tomorrow.io's NowCast API for a given time period."""
         return await super().forecast_nowcast(fields, start_time, duration, timestep)
 
@@ -428,7 +362,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         fields: List[str],
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Return daily forecast data from Tomorrow.io's API for a given time period."""
         return await super().forecast_daily(fields, start_time, duration)
 
@@ -438,7 +372,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         fields: List[str],
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Return hourly forecast data from Tomorrow.io's API for a given time period."""
         return await super().forecast_hourly(fields, start_time, duration)
 
@@ -446,7 +380,7 @@ class TomorrowioV4Sync(TomorrowioV4):
     async def realtime_and_all_forecasts(
         self,
         realtime_fields: List[str],
-        forecast_fields: List[str],
+        forecast_or_nowcast_fields: List[str],
         hourly_fields: List[str] = None,
         daily_fields: List[str] = None,
         nowcast_timestep: int = 5,
@@ -459,8 +393,8 @@ class TomorrowioV4Sync(TomorrowioV4):
         data.
         """
         return await super().realtime_and_all_forecasts(
-            realtime_fields,
-            forecast_fields,
+            realtime_fields=realtime_fields,
+            forecast_or_nowcast_fields=forecast_or_nowcast_fields,
             hourly_fields=hourly_fields,
             daily_fields=daily_fields,
             nowcast_timestep=nowcast_timestep,
