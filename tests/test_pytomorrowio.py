@@ -53,11 +53,13 @@ async def test_timelines_hourly_good():
         for interval in intervals:
             assert isinstance(interval, Mapping)
 
-            startTime = interval.get("startTime")
+            start_time = interval.get("startTime")
+            assert isinstance(start_time, str)
+
             # Might be fixed in Python 3.11 - https://github.com/python/cpython/issues/80010
             # Maybe pytomorrowio should do the replacements to improve user experience
-            startTime = re.sub("Z$", "+00:00", startTime)
-            datetime.fromisoformat(startTime)
+            start_time = re.sub("Z$", "+00:00", start_time)
+            datetime.fromisoformat(start_time)
 
             values = interval.get("values")
             assert isinstance(values, Mapping)
