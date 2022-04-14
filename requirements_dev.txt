@@ -12,6 +12,7 @@ black
 pylint
 pytest
 pytest-asyncio
+pytest-cov
 asynctest; python_version < '3.8'
 mypy
 -r requirements.txt
