@@ -13,6 +13,7 @@ from .const import (
     DAILY,
     FIELDS_V4,
     FORECASTS,
+    HEADER_DAILY_API_LIMIT,
     HEADERS,
     HOURLY,
     NOWCAST,
@@ -100,7 +101,7 @@ class TomorrowioV4:
         latitude: Union[int, float, str],
         longitude: Union[int, float, str],
         unit_system: str = "imperial",
-        session: ClientSession = None,
+        session: Optional[ClientSession] = None,
     ) -> None:
         """Initialize Tomorrow.io API object."""
         if unit_system.lower() not in ("metric", "imperial", "si", "us"):
@@ -119,6 +120,7 @@ class TomorrowioV4:
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
+        self.limit: Optional[int] = None
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -175,46 +177,40 @@ class TomorrowioV4:
 
         return fields
 
-    async def _call_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Call Tomorrow.io API."""
+    async def _call_api_with_session(
+        self, session: ClientSession, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Call Tomorrow.io API with input session."""
         try:
-            if self._session:
-                resp = await self._session.post(
-                    BASE_URL_V4,
-                    headers=self._headers,
-                    data=json.dumps({**self._params, **params}),
-                )
-                resp_json = await resp.json()
-                if resp.status == 200:
-                    return resp_json
-                if resp.status == 400:
-                    raise MalformedRequestException(resp_json, resp.headers)
-                elif resp.status in (401, 403):
-                    raise InvalidAPIKeyException(resp_json, resp.headers)
-                elif resp.status == 429:
-                    raise RateLimitedException(resp_json, resp.headers)
-                else:
-                    raise UnknownException(resp_json, resp.headers)
-
-            async with ClientSession() as session:
-                resp = await session.post(
-                    BASE_URL_V4,
-                    headers=self._headers,
-                    data=json.dumps({**self._params, **params}),
-                )
-                resp_json = await resp.json()
-                if resp.status == 200:
-                    return resp_json
-                if resp.status == 400:
-                    raise MalformedRequestException(resp_json, resp.headers)
-                elif resp.status in (401, 403):
-                    raise InvalidAPIKeyException(resp_json, resp.headers)
-                elif resp.status == 429:
-                    raise RateLimitedException(resp_json, resp.headers)
-                else:
-                    raise UnknownException(resp_json, resp.headers)
+            resp = await session.post(
+                BASE_URL_V4,
+                headers=self._headers,
+                data=json.dumps({**self._params, **params}),
+            )
+            resp_json = await resp.json()
         except ClientConnectionError:
             raise CantConnectException()
+
+        if resp.status == 200:
+            if (limit := resp.headers.get(HEADER_DAILY_API_LIMIT)) is not None:
+                self.limit = int(limit)
+            return resp_json
+        if resp.status == 400:
+            raise MalformedRequestException(resp_json, resp.headers)
+        elif resp.status in (401, 403):
+            raise InvalidAPIKeyException(resp_json, resp.headers)
+        elif resp.status == 429:
+            raise RateLimitedException(resp_json, resp.headers)
+        else:
+            raise UnknownException(resp_json, resp.headers)
+
+    async def _call_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Call Tomorrow.io API."""
+        if self._session:
+            return self._call_api_with_session(self._session, params)
+
+        async with ClientSession() as session:
+            return self._call_api_with_session(session, params)
 
     async def realtime(self, fields: List[str]) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
