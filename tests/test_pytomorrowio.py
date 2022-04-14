@@ -11,7 +11,7 @@ else:
     from unittest.mock import patch
 
 from pytomorrowio import TomorrowioV4
-from pytomorrowio.const import ONE_HOUR, TIMESTEP_HOURLY
+from pytomorrowio.const import ONE_HOUR, TIMESTEP_HOURLY, TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER
 
 
 def call_api_mock():
@@ -28,7 +28,7 @@ async def test_timelines_hourly_good():
         mock.return_value = load_json("tests/fixtures/timelines_hourly_good.json")
 
         api = TomorrowioV4("bogus_api_key", 28.4195, -81.5812)
-        available_fields = api.available_fields(ONE_HOUR)
+        available_fields = api.available_fields(ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER])
         res = await api.forecast_hourly(available_fields)
 
         assert res is not None
@@ -64,22 +64,4 @@ async def test_timelines_hourly_good():
             values = interval.get("values")
             assert isinstance(values, Mapping)
 
-            unavailable_values = {
-                "epaHealthConcern",
-                "epaIndex",
-                "epaPrimaryPollutant",
-                "mepHealthConcern",
-                "mepIndex",
-                "mepPrimaryPollutant",
-                "particulateMatter10",
-                "particulateMatter25",
-                "pollutantCO",
-                "pollutantNO2",
-                "pollutantO3",
-                "pollutantSO2",
-                "solarDHI",
-                "solarDNI",
-                "solarGHI",
-            }
-
-            assert set(values) == (set(available_fields) - unavailable_values)
+            assert set(values) == set(available_fields)
