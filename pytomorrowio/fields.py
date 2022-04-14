@@ -4,9 +4,9 @@ from datetime import timedelta
 from typing import List
 
 from .const import (
-    INSTANT,
     ONE_DAY,
     ONE_HOUR,
+    REALTIME,
     THIRTY_MINUTES,
     TYPE_AIR_QUALITY,
     TYPE_FIRE,
@@ -225,7 +225,7 @@ FIELDS_V4 = {
         type=TYPE_POLLEN,
     ),
     "fireIndex": FieldDefinition(
-        max_timestep=INSTANT,
+        max_timestep=REALTIME,
         measurements=ALL_MEASUREMENTS,
         type=TYPE_FIRE,
     ),

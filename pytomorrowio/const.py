@@ -29,7 +29,7 @@ THIRTY_MINUTES = timedelta(minutes=30)
 FIFTEEN_MINUTES = timedelta(minutes=15)
 FIVE_MINUTES = timedelta(minutes=5)
 ONE_MINUTE = timedelta(minutes=1)
-INSTANT = timedelta(0)
+REALTIME = timedelta(0)
 
 VALID_TIMESTEPS = (
     ONE_DAY,
@@ -38,7 +38,7 @@ VALID_TIMESTEPS = (
     FIFTEEN_MINUTES,
     FIVE_MINUTES,
     ONE_MINUTE,
-    INSTANT,
+    REALTIME,
 )
 
 

@@ -15,10 +15,10 @@ from .const import (
     FORECASTS,
     HEADERS,
     HOURLY,
-    INSTANT,
     NOWCAST,
     ONE_DAY,
     ONE_HOUR,
+    REALTIME,
     TIMESTEP_DAILY,
     TIMESTEP_HOURLY,
     VALID_TIMESTEPS,
@@ -162,7 +162,7 @@ class TomorrowioV4:
         """Return realtime weather conditions from Tomorrow.io API."""
         return await self._call_api(
             {
-                "fields": process_v4_fields(fields, INSTANT),
+                "fields": process_v4_fields(fields, REALTIME),
                 "timesteps": ["current"],
             }
         )
