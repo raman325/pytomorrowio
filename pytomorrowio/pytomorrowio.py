@@ -93,7 +93,7 @@ class TomorrowioV4:
         self.unit_system = unit_system.lower()
         self._session = session
         self._params = {
-            "location": self.location,
+            "location": f"{latitude},{longitude}",
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
@@ -187,11 +187,11 @@ class TomorrowioV4:
             **kwargs,
         }
         if timestep == ONE_DAY:
-            params["timestep"] = [TIMESTEP_DAILY]
+            params["timesteps"] = [TIMESTEP_DAILY]
         elif timestep == ONE_HOUR:
-            params["timestep"] = [TIMESTEP_HOURLY]
+            params["timesteps"] = [TIMESTEP_HOURLY]
         else:
-            params["timestep"] = [f"{int(timestep.total_seconds()/60)}m"]
+            params["timesteps"] = [f"{int(timestep.total_seconds()/60)}m"]
 
         if start_time:
             if not start_time.tzinfo:
@@ -291,9 +291,9 @@ class TomorrowioV4:
             )
             if "data" in data and "timelines" in data["data"]:
                 for timeline in data["data"]["timelines"]:
-                    if timeline["timestep"] == TIMESTEP_DAILY:
+                    if timeline["timesteps"] == TIMESTEP_DAILY:
                         key = DAILY
-                    elif timeline["timestep"] == TIMESTEP_HOURLY:
+                    elif timeline["timesteps"] == TIMESTEP_HOURLY:
                         key = HOURLY
                     else:
                         key = NOWCAST
