@@ -1,5 +1,4 @@
 dirty_tests.py
-*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
