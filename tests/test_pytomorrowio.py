@@ -3,7 +3,7 @@ import json
 import re
 from datetime import datetime
 from typing import Mapping, Sequence
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import ONE_HOUR
