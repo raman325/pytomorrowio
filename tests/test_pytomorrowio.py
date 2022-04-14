@@ -3,7 +3,12 @@ import json
 import re
 from datetime import datetime
 from typing import Mapping, Sequence
-from unittest.mock import patch
+import sys
+
+if sys.version_info < (3, 8):
+    from asynctest import patch
+else:
+    from unittest.mock import patch
 
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import ONE_HOUR, TIMESTEP_HOURLY
