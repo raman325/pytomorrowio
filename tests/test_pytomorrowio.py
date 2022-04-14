@@ -1,9 +1,9 @@
 """Tests for `pytomorrowio` package."""
 import json
 import re
+import sys
 from datetime import datetime
 from typing import Mapping, Sequence
-import sys
 
 if sys.version_info < (3, 8):
     from asynctest import patch
