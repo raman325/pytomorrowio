@@ -120,12 +120,12 @@ async def test_timelines_hourly_good():
 
 
 async def test_timelines_daily_good():
-    async with ClientSession(trace_configs=[trace_config]) as session:
-        api = TomorrowioV4("Fj4NElrDkKnf76zxuMYnFDVxfrZsvQKE", *GPS_COORD, session=session)
+    #async with ClientSession(trace_configs=[trace_config]) as session:
+    #    api = TomorrowioV4("real_api_key", *GPS_COORD, session=session)
 
-    #with call_api_mock() as mock:
-    #    mock.return_value = load_json("tests/fixtures/timelines_daily_good.json")
-    #    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    with call_api_mock() as mock:
+        mock.return_value = load_json("tests/fixtures/timelines_daily_good.json")
+        api = TomorrowioV4("bogus_api_key", *GPS_COORD)
         available_fields = api.available_fields(
             ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
         )
