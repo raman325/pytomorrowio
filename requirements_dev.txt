@@ -11,5 +11,6 @@ isort
 black
 pylint
 pytest
+pytest-asyncio
 mypy
 -r requirements.txt
