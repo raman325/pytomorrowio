@@ -13,6 +13,7 @@ from .const import (
     CURRENT,
     DAILY,
     FORECASTS,
+    HEADER_DAILY_API_LIMIT,
     HEADERS,
     HOURLY,
     NOWCAST,
@@ -78,7 +79,7 @@ class TomorrowioV4:
         latitude: Union[int, float, str],
         longitude: Union[int, float, str],
         unit_system: str = "imperial",
-        session: ClientSession = None,
+        session: Optional[ClientSession] = None,
     ) -> None:
         """Initialize Tomorrow.io API object."""
         if unit_system.lower() not in ("metric", "imperial", "si", "us"):
@@ -89,14 +90,14 @@ class TomorrowioV4:
             unit_system = "imperial"
 
         self._apikey = apikey
-        self.location = [float(latitude), float(longitude)]
         self.unit_system = unit_system.lower()
         self._session = session
         self._params = {
-            "location": f"{latitude},{longitude}",
+            "location": f"{float(latitude)},{float(longitude)}",
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
+        self.max_requests: Optional[int] = None
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -129,26 +130,28 @@ class TomorrowioV4:
 
     async def _call_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Call Tomorrow.io API."""
-        try:
-            if self._session:
-                return await self._make_call(params, self._session)
+        if self._session:
+            return await self._make_call(params, self._session)
 
-            async with ClientSession() as session:
-                return await self._make_call(params, session)
-
-        except ClientConnectionError as error:
-            raise CantConnectException() from error
+        async with ClientSession() as session:
+            return await self._make_call(params, session)
 
     async def _make_call(
         self, params: Dict[str, Any], session: ClientSession
     ) -> Dict[str, Any]:
-        resp = await session.post(
-            BASE_URL_V4,
-            headers=self._headers,
-            data=json.dumps({**self._params, **params}),
-        )
-        resp_json = await resp.json()
+        try:
+            resp = await session.post(
+                BASE_URL_V4,
+                headers=self._headers,
+                data=json.dumps({**self._params, **params}),
+            )
+            resp_json = await resp.json()
+        except ClientConnectionError as error:
+            raise CantConnectException() from error
+
         if resp.status == HTTPStatus.OK:
+            if (max_requests := resp.headers.get(HEADER_DAILY_API_LIMIT)) != self.max_requests:
+                self.max_requests = int(max_requests)
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
             raise MalformedRequestException(resp_json, resp.headers)
