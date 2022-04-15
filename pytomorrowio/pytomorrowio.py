@@ -97,7 +97,12 @@ class TomorrowioV4:
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
-        self.max_requests: Optional[int] = None
+        self._max_requests_per_day: Optional[int] = None
+
+    @property
+    def max_requests_per_day(self) -> Optional[int]:
+        """Return the maximum number of requests per day."""
+        return self._max_requests_per_day
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -151,8 +156,8 @@ class TomorrowioV4:
 
         if resp.status == HTTPStatus.OK:
             max_requests = resp.headers[HEADER_DAILY_API_LIMIT]
-            if max_requests != self.max_requests:
-                self.max_requests = int(max_requests)
+            if max_requests != self._max_requests_per_day:
+                self._max_requests_per_day = int(max_requests)
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
             raise MalformedRequestException(resp_json, resp.headers)
