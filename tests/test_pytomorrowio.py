@@ -32,56 +32,68 @@ from pytomorrowio.const import (
 GPS_COORD = (28.4195, -81.5812)
 
 
-async def on_request_chunk_sent(
-    session: ClientSession,
-    trace_config_ctx: SimpleNamespace,
-    params: TraceRequestChunkSentParams,
-):
-    trace_config_ctx.request_body = params.chunk
+def create_trace_config() -> TraceConfig:
+    async def on_request_chunk_sent(
+        session: ClientSession,
+        trace_config_ctx: SimpleNamespace,
+        params: TraceRequestChunkSentParams,
+    ):
+        trace_config_ctx.request_body = params.chunk
+
+    async def on_request_end(
+        session: ClientSession,
+        trace_config_ctx: SimpleNamespace,
+        params: TraceRequestEndParams,
+    ):
+        print("Request:")
+        print(params.url)
+        for k, v in params.headers.items():
+            print(f"  {k}: {v}")
+        if trace_config_ctx.request_body:
+            print(trace_config_ctx.request_body)
+        print()
+        print("Response:")
+        for k, v in sorted(params.response.headers.items()):
+            print(f"  {k}: {v}")
+        resp = await params.response.json()
+        print(json.dumps(resp, indent=2))
+
+    trace_config = TraceConfig()
+    trace_config.on_request_chunk_sent.append(on_request_chunk_sent)
+    trace_config.on_request_end.append(on_request_end)
+    return trace_config
 
 
-async def on_request_end(
-    session: ClientSession,
-    trace_config_ctx: SimpleNamespace,
-    params: TraceRequestEndParams,
-):
-    print("Request:")
-    print(params.url)
-    for k, v in params.headers.items():
-        print(f"  {k}: {v}")
-    if trace_config_ctx.request_body:
-        print(trace_config_ctx.request_body)
-
-    print("Response:")
-    for k, v in sorted(params.response.headers.items()):
-        print(f"  {k}: {v}")
-    resp = await params.response.json()
-    print(json.dumps(resp, indent=2))
-
-
-trace_config = TraceConfig()
-trace_config.on_request_chunk_sent.append(on_request_chunk_sent)
-trace_config.on_request_end.append(on_request_end)
-
-
-def call_api_mock():
+def mock_call_api():
     return patch("pytomorrowio.TomorrowioV4._call_api")
 
 
 def load_json(file_name: str):
-    with open(file_name, "r") as handle:
-        return json.load(handle)
+    with open(f"tests/fixtures/{file_name}", "r") as file:
+        return json.load(file)
+
+
+async def _test_capture_request_and_response():
+    # Remove leading underscore to capture request & response
+    async with ClientSession(trace_configs=[create_trace_config()]) as session:
+        api = TomorrowioV4("real_api_key", *GPS_COORD, session=session)
+
+        available_fields = api.available_fields(
+            ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+        )
+        await api.forecast_daily(available_fields)
 
 
 async def test_timelines_hourly_good():
-    with call_api_mock() as mock:
-        mock.return_value = load_json("tests/fixtures/timelines_hourly_good.json")
+    with mock_call_api() as mock:
+        mock.return_value = load_json("timelines_hourly_good.json")
 
         api = TomorrowioV4("bogus_api_key", *GPS_COORD)
         available_fields = api.available_fields(
             ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
         )
         res = await api.forecast_hourly(available_fields)
+        mock.assert_called_once()
 
         assert res is not None
         assert isinstance(res, Mapping)
@@ -120,16 +132,14 @@ async def test_timelines_hourly_good():
 
 
 async def test_timelines_daily_good():
-    #async with ClientSession(trace_configs=[trace_config]) as session:
-    #    api = TomorrowioV4("real_api_key", *GPS_COORD, session=session)
-
-    with call_api_mock() as mock:
-        mock.return_value = load_json("tests/fixtures/timelines_daily_good.json")
+    with mock_call_api() as mock:
+        mock.return_value = load_json("timelines_daily_good.json")
         api = TomorrowioV4("bogus_api_key", *GPS_COORD)
         available_fields = api.available_fields(
             ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
         )
         res = await api.forecast_daily(available_fields)
+        mock.assert_called_once()
 
         assert res is not None
         assert isinstance(res, Mapping)
