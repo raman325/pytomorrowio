@@ -291,9 +291,9 @@ class TomorrowioV4:
             )
             if "data" in data and "timelines" in data["data"]:
                 for timeline in data["data"]["timelines"]:
-                    if timeline["timesteps"] == TIMESTEP_DAILY:
+                    if timeline["timestep"] == TIMESTEP_DAILY:
                         key = DAILY
-                    elif timeline["timesteps"] == TIMESTEP_HOURLY:
+                    elif timeline["timestep"] == TIMESTEP_HOURLY:
                         key = HOURLY
                     else:
                         key = NOWCAST
