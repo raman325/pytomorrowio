@@ -152,7 +152,7 @@ class TomorrowioV4:
         if resp.status == HTTPStatus.OK:
             if (
                 max_requests := resp.headers.get(HEADER_DAILY_API_LIMIT)
-            ) != self.max_requests:
+            ) is not None and max_requests != self.max_requests:
                 self.max_requests = int(max_requests)
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
