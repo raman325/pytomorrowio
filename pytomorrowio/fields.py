@@ -7,7 +7,6 @@ from .const import (
     ONE_DAY,
     ONE_HOUR,
     REALTIME,
-    THIRTY_MINUTES,
     TYPE_AIR_QUALITY,
     TYPE_FIRE,
     TYPE_POLLEN,
