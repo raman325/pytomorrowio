@@ -95,7 +95,7 @@ FIELDS_V4 = {
         type=TYPE_PRECIPITATION,
     ),
     "hailBinary": FieldDefinition(
-        max_timestep=THIRTY_MINUTES,
+        max_timestep=REALTIME,
         measurements=[],
         type=TYPE_PRECIPITATION,
     ),

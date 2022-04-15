@@ -20,6 +20,7 @@ else:
 
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import (
+    FIVE_MINUTES,
     ONE_DAY,
     ONE_HOUR,
     TIMESTEP_DAILY,
@@ -82,6 +83,7 @@ async def _test_capture_request_and_response():
             ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
         )
         await api.forecast_daily(available_fields)
+        assert False
 
 
 async def test_timelines_hourly_good():
@@ -173,3 +175,29 @@ async def test_timelines_daily_good():
         assert isinstance(values, Mapping)
 
         assert set(values) == set(expected_values)
+
+
+async def test_timelines_5min_good():
+    with create_call_api_mock() as mock:
+        mock.return_value = load_json("timelines_5min_good.json")
+
+        api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+        available_fields = api.available_fields(
+            FIVE_MINUTES, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+        )
+        res = await api.forecast_nowcast(available_fields)
+
+    assert res is not None
+    assert isinstance(res, Mapping)
+
+    data = res.get("data")
+    assert isinstance(data, Mapping)
+
+    timelines = data.get("timelines")
+    assert isinstance(timelines, Sequence)
+    assert len(timelines) == 1
+
+    timeline = timelines[0]
+    assert isinstance(timeline, Mapping)
+
+    assert timeline.get("timestep") == "5m"
