@@ -150,7 +150,9 @@ class TomorrowioV4:
             raise CantConnectException() from error
 
         if resp.status == HTTPStatus.OK:
-            if (max_requests := resp.headers.get(HEADER_DAILY_API_LIMIT)) != self.max_requests:
+            if (
+                max_requests := resp.headers.get(HEADER_DAILY_API_LIMIT)
+            ) != self.max_requests:
                 self.max_requests = int(max_requests)
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
