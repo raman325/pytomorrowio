@@ -1,4 +1,4 @@
-pip==19.2.3
+pip>=21.0,<22.1
 bump2version==0.5.11
 wheel==0.33.6
 watchdog==0.9.0
@@ -9,4 +9,10 @@ Sphinx==1.8.5
 twine==1.14.0
 isort
 black
+pylint
+pytest
+pytest-asyncio
+pytest-cov
+asynctest; python_version < '3.8'
+mypy
 -r requirements.txt

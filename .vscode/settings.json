@@ -1,0 +1,16 @@
+{
+  "cSpell.enabled": false,
+  "python.formatting.provider": "black",
+  "python.linting.pylintEnabled": true,
+  "python.linting.enabled": true,
+  "python.linting.ignorePatterns": [
+      "tests/**/*.py"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.mypy_cache": true,
+    "**/.pytest_cache": true
+  }
+}

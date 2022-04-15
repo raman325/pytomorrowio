@@ -1,4 +1,5 @@
 """Constants."""
+from datetime import timedelta
 from enum import IntEnum
 
 HEADERS = {"content-type": "application/json"}
@@ -11,10 +12,6 @@ FORECASTS = "forecasts"
 TIMESTEP_HOURLY = "1h"
 TIMESTEP_DAILY = "1d"
 
-MIN = "Min"
-MAX = "Max"
-AVG = "Avg"
-
 TYPE_WEATHER = "weather"
 TYPE_POLLEN = "pollen"
 TYPE_AIR_QUALITY = "air_quality"
@@ -22,210 +19,27 @@ TYPE_FIRE = "fire"
 TYPE_SOLAR = "solar"
 TYPE_PRECIPITATION = "precipitation"
 
-ALL_MEASUREMENTS = [MIN, MAX, AVG]
-NO_AVG = [MIN, MAX]
-
-
 # V4 constants
 BASE_URL_V4 = "https://api.tomorrow.io/v4/timelines"
 CURRENT = "current"
-FIELDS_V4 = {
-    "temperature": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "temperatureApparent": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "dewPoint": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "humidity": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "windSpeed": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "windDirection": {
-        "timestep": [-6, 360],
-        "measurements": [AVG],
-        "type": TYPE_WEATHER,
-    },
-    "windGust": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "pressureSurfaceLevel": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "pressureSeaLevel": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "precipitationIntensity": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_PRECIPITATION,
-    },
-    "precipitationProbability": {
-        "timestep": [0, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_PRECIPITATION,
-    },
-    "precipitationType": {
-        "timestep": [-6, 108],
-        "measurements": [],
-        "type": TYPE_PRECIPITATION,
-    },
-    "hailBinary": {
-        "timestep": [-6, 48],
-        "measurements": [],
-        "type": TYPE_PRECIPITATION,
-    },
-    "solarGHI": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_SOLAR,
-    },
-    "solarDNI": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_SOLAR,
-    },
-    "solarDHI": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_SOLAR,
-    },
-    "visibility": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "cloudCover": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "cloudBase": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "cloudCeiling": {
-        "timestep": [-6, 360],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-    "weatherCode": {
-        "timestep": [-6, 360],
-        "measurements": NO_AVG,
-        "type": TYPE_WEATHER,
-    },
-    "particulateMatter25": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "particulateMatter10": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "pollutantO3": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "pollutantNO2": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "pollutantCO": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "pollutantSO2": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "mepIndex": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "mepPrimaryPollutant": {
-        "timestep": [-6, 108],
-        "measurements": [],
-        "type": TYPE_AIR_QUALITY,
-    },
-    "mepHealthConcern": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "epaIndex": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "epaPrimaryPollutant": {
-        "timestep": [-6, 108],
-        "measurements": [],
-        "type": TYPE_AIR_QUALITY,
-    },
-    "epaHealthConcern": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_AIR_QUALITY,
-    },
-    "treeIndex": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_POLLEN,
-    },
-    "grassIndex": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_POLLEN,
-    },
-    "grassGrassIndex": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_POLLEN,
-    },
-    "weedIndex": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_POLLEN,
-    },
-    "weedRagweedIndex": {
-        "timestep": [-6, 108],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_POLLEN,
-    },
-    "fireIndex": {
-        "timestep": [-6, 0],
-        "measurements": ALL_MEASUREMENTS,
-        "type": TYPE_WEATHER,
-    },
-}
+
+ONE_DAY = timedelta(days=1)
+ONE_HOUR = timedelta(hours=1)
+THIRTY_MINUTES = timedelta(minutes=30)
+FIFTEEN_MINUTES = timedelta(minutes=15)
+FIVE_MINUTES = timedelta(minutes=5)
+ONE_MINUTE = timedelta(minutes=1)
+REALTIME = timedelta(0)
+
+VALID_TIMESTEPS = (
+    ONE_DAY,
+    ONE_HOUR,
+    THIRTY_MINUTES,
+    FIFTEEN_MINUTES,
+    FIVE_MINUTES,
+    ONE_MINUTE,
+    REALTIME,
+)
 
 
 class PrecipitationType(IntEnum):
@@ -272,6 +86,8 @@ class HealthConcernType(IntEnum):
 
 
 class WeatherCode(IntEnum):
+    """Weather codes"""
+
     UNKNOWN = 0
     CLEAR = 1000
     CLOUDY = 1001
