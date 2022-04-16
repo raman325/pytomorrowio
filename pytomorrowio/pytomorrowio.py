@@ -99,13 +99,20 @@ class TomorrowioV4:
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
-        self._max_requests_per_day: Optional[int] = None
         self._num_api_requests: int = 2
+        self._rate_limits: Optional[Dict[str, Any]] = None
+
+    @property
+    def rate_limits(self) -> Optional[Dict[str, Any]]:
+        """Return tomorrow.io rate limits for API key"""
+        return self._rate_limits
 
     @property
     def max_requests_per_day(self) -> Optional[int]:
         """Return the maximum number of requests per day."""
-        return self._max_requests_per_day
+        if self.rate_limits and HEADER_DAILY_API_LIMIT in self.rate_limits:
+            return int(self.rate_limits[HEADER_DAILY_API_LIMIT])
+        return None
 
     @property
     def num_api_requests(self) -> int:
@@ -162,11 +169,12 @@ class TomorrowioV4:
         except ClientConnectionError as error:
             raise CantConnectException() from error
 
+        self._rate_limits = {
+            k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()
+        }
+        self._num_api_requests += 1
+
         if resp.status == HTTPStatus.OK:
-            max_requests = resp.headers[HEADER_DAILY_API_LIMIT]
-            if max_requests != self._max_requests_per_day:
-                self._max_requests_per_day = int(max_requests)
-            self._num_api_requests += 1
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
             raise MalformedRequestException(resp_json, resp.headers)

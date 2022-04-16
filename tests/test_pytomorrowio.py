@@ -14,9 +14,9 @@ from aiohttp import (
 )
 
 if sys.version_info < (3, 8):
-    from asynctest import patch
+    from asynctest import patch, Mock, PropertyMock
 else:
-    from unittest.mock import patch
+    from unittest.mock import patch, Mock, PropertyMock
 
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import (
@@ -65,10 +65,6 @@ def create_trace_config() -> TraceConfig:
     return trace_config
 
 
-def create_call_api_mock():
-    return patch.object(TomorrowioV4, "_call_api")
-
-
 def load_json(file_name: str):
     with open(f"tests/fixtures/{file_name}", "r") as file:
         return json.load(file)
@@ -86,16 +82,60 @@ async def _test_capture_request_and_response():
         assert False
 
 
-async def test_timelines_hourly_good():
-    with create_call_api_mock() as mock:
-        mock.return_value = load_json("timelines_hourly_good.json")
+def set_mock_return_value(mock: Mock, return_value):
+    mock.return_value = return_value
+    return None  # return None so caller can chain in lambda func
 
-        api = TomorrowioV4("bogus_api_key", *GPS_COORD)
-        available_fields = api.available_fields(
-            ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
-        )
-        res = await api.forecast_hourly(available_fields)
-        mock.assert_called_once()
+
+@patch.object(TomorrowioV4, "rate_limits", new_callable=PropertyMock)
+@patch.object(TomorrowioV4, "_call_api")
+async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
+    rate_limits_return_value = {
+        "RateLimit-Limit": "3",
+        "RateLimit-Remaining": "2",
+        "RateLimit-Reset": "1",
+        "X-RateLimit-Limit-Day": "500",
+        "X-RateLimit-Limit-Hour": "25",
+        "X-RateLimit-Limit-Second": "3",
+        "X-RateLimit-Remaining-Day": "447",
+        "X-RateLimit-Remaining-Hour": "24",
+        "X-RateLimit-Remaining-Second": "2",
+    }
+
+    call_api_mock.side_effect = lambda _: set_mock_return_value(
+        rate_limits_mock, rate_limits_return_value
+    ) or load_json("timelines_hourly_good.json")
+
+    rate_limits_mock.return_value = None
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    available_fields = api.available_fields(
+        ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+    )
+
+    assert api.rate_limits is None
+    assert api.max_requests_per_day is None
+
+    forecast = await api.forecast_hourly(available_fields)
+    call_api_mock.assert_called_once()
+
+    assert forecast is not None
+
+    assert api.rate_limits == rate_limits_return_value
+    assert api.max_requests_per_day == 500
+
+
+@patch.object(TomorrowioV4, "_call_api")
+async def test_timelines_hourly_good(call_api_mock: Mock):
+    call_api_mock.return_value = load_json("timelines_hourly_good.json")
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    available_fields = api.available_fields(
+        ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+    )
+
+    res = await api.forecast_hourly(available_fields)
+    call_api_mock.assert_called_once()
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -133,16 +173,16 @@ async def test_timelines_hourly_good():
         assert set(values) == set(available_fields)
 
 
-async def test_timelines_daily_good():
-    with create_call_api_mock() as mock:
-        mock.return_value = load_json("timelines_daily_good.json")
+@patch.object(TomorrowioV4, "_call_api")
+async def test_timelines_daily_good(call_api_mock: Mock):
+    call_api_mock.return_value = load_json("timelines_daily_good.json")
 
-        api = TomorrowioV4("bogus_api_key", *GPS_COORD)
-        available_fields = api.available_fields(
-            ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
-        )
-        res = await api.forecast_daily(available_fields)
-        mock.assert_called_once()
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    available_fields = api.available_fields(
+        ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+    )
+    res = await api.forecast_daily(available_fields)
+    call_api_mock.assert_called_once()
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -177,15 +217,16 @@ async def test_timelines_daily_good():
         assert set(values) == set(expected_values)
 
 
-async def test_timelines_5min_good():
-    with create_call_api_mock() as mock:
-        mock.return_value = load_json("timelines_5min_good.json")
+@patch.object(TomorrowioV4, "_call_api")
+async def test_timelines_5min_good(call_api_mock: Mock):
+    call_api_mock.return_value = load_json("timelines_5min_good.json")
 
-        api = TomorrowioV4("bogus_api_key", *GPS_COORD)
-        available_fields = api.available_fields(
-            FIVE_MINUTES, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
-        )
-        res = await api.forecast_nowcast(available_fields)
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    available_fields = api.available_fields(
+        FIVE_MINUTES, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+    )
+    res = await api.forecast_nowcast(available_fields)
+    call_api_mock.assert_called_once()
 
     assert res is not None
     assert isinstance(res, Mapping)
