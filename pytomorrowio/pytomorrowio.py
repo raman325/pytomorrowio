@@ -7,6 +7,7 @@ from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union
 
 from aiohttp import ClientConnectionError, ClientSession
+from multidict import CIMultiDict, CIMultiDictProxy
 
 from .const import (
     BASE_URL_V4,
@@ -97,19 +98,17 @@ class TomorrowioV4:
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
-        self._rate_limits: Optional[Dict[str, Any]] = None
+        self._rate_limits: CIMultiDict = CIMultiDict()
 
     @property
-    def rate_limits(self) -> Optional[Dict[str, Any]]:
+    def rate_limits(self) -> CIMultiDictProxy:
         """Return tomorrow.io rate limits for API key"""
-        return self._rate_limits
+        return CIMultiDictProxy(self._rate_limits)  # make read-only
 
     @property
     def max_requests_per_day(self) -> Optional[int]:
         """Return the maximum number of requests per day."""
-        if self.rate_limits and HEADER_DAILY_API_LIMIT in self.rate_limits:
-            return int(self.rate_limits[HEADER_DAILY_API_LIMIT])
-        return None
+        return self.rate_limits.get(HEADER_DAILY_API_LIMIT)
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -161,9 +160,9 @@ class TomorrowioV4:
         except ClientConnectionError as error:
             raise CantConnectException() from error
 
-        self._rate_limits = {
-            k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()
-        }
+        self._rate_limits = CIMultiDict(
+            {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
+        )
 
         if resp.status == HTTPStatus.OK:
             return resp_json
