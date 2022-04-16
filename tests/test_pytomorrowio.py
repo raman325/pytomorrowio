@@ -114,8 +114,6 @@ async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
         ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
 
-    assert api.max_requests_per_day is None
-
     forecast = await api.forecast_hourly(available_fields)
     call_api_mock.assert_called_once()
 
