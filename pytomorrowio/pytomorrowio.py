@@ -4,7 +4,6 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
-from math import ceil
 from typing import Any, Dict, List, Optional, Union
 
 from aiohttp import ClientConnectionError, ClientSession
@@ -289,11 +288,11 @@ class TomorrowioV4:
         """
         self._num_api_requests = 0
         ret_data: dict[str, dict[str, Any]] = {CURRENT: {}, FORECASTS: {}}
-        for i in range(0, ceil(len(realtime_fields) / MAX_FIELDS)):
+        for i in range(0, len(realtime_fields), MAX_FIELDS):
             data = await self._call_api(
                 {
                     "timesteps": ["current"],
-                    "fields": realtime_fields[i * MAX_FIELDS : (i + 1) * MAX_FIELDS],
+                    "fields": realtime_fields[i : i + MAX_FIELDS],
                 }
             )
             if (
