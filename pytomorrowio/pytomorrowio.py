@@ -280,7 +280,7 @@ class TomorrowioV4:
         data.
         """
         self._num_api_requests = 0
-        ret_data = {CURRENT: {}, FORECASTS: {}}
+        ret_data: dict[str, dict[str, Any]] = {CURRENT: {}, FORECASTS: {}}
         for i in range(0, ceil(len(realtime_fields) / MAX_FIELDS)):
             data = await self._call_api(
                 {
