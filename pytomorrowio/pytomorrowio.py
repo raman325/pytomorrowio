@@ -285,7 +285,7 @@ class TomorrowioV4:
             data = await self._call_api(
                 {
                     "timesteps": ["current"],
-                    "fields": realtime_fields[i * MAX_FIELDS:(i + 1) * MAX_FIELDS],
+                    "fields": realtime_fields[i * MAX_FIELDS : (i + 1) * MAX_FIELDS],
                 }
             )
             if (
