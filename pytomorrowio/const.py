@@ -21,6 +21,8 @@ TYPE_FIRE = "fire"
 TYPE_SOLAR = "solar"
 TYPE_PRECIPITATION = "precipitation"
 
+MAX_FIELDS = 55
+
 # V4 constants
 BASE_URL_V4 = "https://api.tomorrow.io/v4/timelines"
 CURRENT = "current"

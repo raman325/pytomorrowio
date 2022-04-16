@@ -4,6 +4,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
+from math import ceil
 from typing import Any, Dict, List, Optional, Union
 
 from aiohttp import ClientConnectionError, ClientSession
@@ -16,6 +17,7 @@ from .const import (
     HEADER_DAILY_API_LIMIT,
     HEADERS,
     HOURLY,
+    MAX_FIELDS,
     NOWCAST,
     ONE_DAY,
     ONE_HOUR,
@@ -98,11 +100,17 @@ class TomorrowioV4:
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
         self._max_requests_per_day: Optional[int] = None
+        self._num_api_requests: int = 2
 
     @property
     def max_requests_per_day(self) -> Optional[int]:
         """Return the maximum number of requests per day."""
         return self._max_requests_per_day
+
+    @property
+    def num_api_requests(self) -> int:
+        """Return the number of API requests made."""
+        return self._num_api_requests
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -158,6 +166,7 @@ class TomorrowioV4:
             max_requests = resp.headers[HEADER_DAILY_API_LIMIT]
             if max_requests != self._max_requests_per_day:
                 self._max_requests_per_day = int(max_requests)
+            self._num_api_requests += 1
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
             raise MalformedRequestException(resp_json, resp.headers)
@@ -169,6 +178,7 @@ class TomorrowioV4:
 
     async def realtime(self, fields: List[str]) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
+        self._num_api_requests = 0
         return await self._call_api(
             {
                 "fields": process_v4_fields(fields, REALTIME),
@@ -185,6 +195,7 @@ class TomorrowioV4:
         **kwargs,
     ) -> Dict[str, Any]:
         """Return forecast data from Tomorrow.io's API for a given time period."""
+        self._num_api_requests = 0
         if timestep not in VALID_TIMESTEPS:
             raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
         fields = process_v4_fields(fields, timestep)
@@ -268,22 +279,28 @@ class TomorrowioV4:
         `forecast_or_nowcast_fields` will be used to get nowcast, hourly, and daily
         data.
         """
-        ret_data = {}
-        data = await self._call_api(
-            {
-                "timesteps": ["current"],
-                "fields": realtime_fields,
-            }
-        )
-        if (
-            "data" in data
-            and "timelines" in data["data"]
-            and "intervals" in data["data"]["timelines"][0]
-            and "values" in data["data"]["timelines"][0]["intervals"][0]
-        ):
-            ret_data[CURRENT] = data["data"]["timelines"][0]["intervals"][0]["values"]
+        self._num_api_requests = 0
+        ret_data = {CURRENT: {}, FORECASTS: {}}
+        for i in range(0, ceil(len(realtime_fields) / MAX_FIELDS)):
+            start_index = i * MAX_FIELDS
+            end_index = (i + 1) * MAX_FIELDS
+            data = await self._call_api(
+                {
+                    "timesteps": ["current"],
+                    "fields": realtime_fields[start_index:end_index],
+                }
+            )
+            if (
+                "data" in data
+                and "timelines" in data["data"]
+                and "intervals" in data["data"]["timelines"][0]
+                and "values" in data["data"]["timelines"][0]["intervals"][0]
+            ):
+                ret_data[CURRENT].update(
+                    data["data"]["timelines"][0]["intervals"][0]["values"]
+                )
 
-        forecasts = ret_data.setdefault(FORECASTS, {})
+        forecasts = ret_data[FORECASTS]
         start_time = datetime.now(tz=timezone.utc).isoformat()
 
         if not hourly_fields and not daily_fields:
