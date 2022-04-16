@@ -87,9 +87,12 @@ def set_mock_return_value(mock: Mock, return_value):
     return None  # return None so caller can chain in lambda func
 
 
+@patch.object(TomorrowioV4, "num_api_requests", new_callable=PropertyMock)
 @patch.object(TomorrowioV4, "rate_limits", new_callable=PropertyMock)
 @patch.object(TomorrowioV4, "_call_api")
-async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
+async def test_rate_limits(
+    call_api_mock: Mock, rate_limits_mock: Mock, num_api_requests_mock: Mock
+):
     rate_limits_return_value = {
         "RateLimit-Limit": "3",
         "RateLimit-Remaining": "2",
@@ -102,11 +105,14 @@ async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
         "X-RateLimit-Remaining-Second": "2",
     }
 
-    call_api_mock.side_effect = lambda _: set_mock_return_value(
-        rate_limits_mock, rate_limits_return_value
-    ) or load_json("timelines_hourly_good.json")
+    call_api_mock.side_effect = (
+        lambda _: set_mock_return_value(rate_limits_mock, rate_limits_return_value)
+        or set_mock_return_value(num_api_requests_mock, 1)
+        or load_json("timelines_hourly_good.json")
+    )
 
     rate_limits_mock.return_value = None
+    num_api_requests_mock.return_value = 2
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
     available_fields = api.available_fields(
@@ -115,6 +121,7 @@ async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
 
     assert api.rate_limits is None
     assert api.max_requests_per_day is None
+    assert api.num_api_requests == 2
 
     forecast = await api.forecast_hourly(available_fields)
     call_api_mock.assert_called_once()
@@ -123,6 +130,7 @@ async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
 
     assert api.rate_limits == rate_limits_return_value
     assert api.max_requests_per_day == 500
+    assert api.num_api_requests == 1
 
 
 @patch.object(TomorrowioV4, "_call_api")
