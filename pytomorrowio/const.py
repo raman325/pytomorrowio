@@ -44,6 +44,53 @@ VALID_TIMESTEPS = (
 )
 
 
+class UVDescription(IntEnum):
+    """UV index and health concern description."""
+
+    LOW = 0
+    MODERATE = 1
+    HIGH = 2
+    VERY_HIGH = 3
+    EXTREME = 4
+
+
+def convert_uv_value(value: int) -> UVDescription:
+    """Convert a UV index or health concern value to a description."""
+    if value < 3:
+        return UVDescription.LOW
+    if value < 6:
+        return UVDescription.MODERATE
+    if value < 8:
+        return UVDescription.HIGH
+    if value < 11:
+        return UVDescription.VERY_HIGH
+
+    return UVDescription.EXTREME
+
+
+class MoonPhase(IntEnum):
+    """Moon phase."""
+
+    NEW = 0
+    WAXING_CRESCENT = 1
+    FIRST_QUARTER = 2
+    WAXING_GIBBOUS = 3
+    FULL = 4
+    WANING_GIBBOUS = 5
+    THIRD_QUARTER = 6
+    WANING_CRESCENT = 7
+
+
+class FloodIndex(IntEnum):
+    """Flood index."""
+
+    MINOR = 1
+    MODERATE = 2
+    SIGNIFICANT = 3
+    MAJOR = 4
+    CATASTROPHIC = 5
+
+
 class PrecipitationType(IntEnum):
     """Precipitation types."""
 
