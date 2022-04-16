@@ -4,7 +4,7 @@ from enum import IntEnum
 
 HEADERS = {"content-type": "application/json"}
 
-HEADER_DAILY_API_LIMIT = "X-RateLimit-Limit-hour"
+HEADER_DAILY_API_LIMIT = "X-RateLimit-Limit-Day"
 
 DAILY = "daily"
 HOURLY = "hourly"
