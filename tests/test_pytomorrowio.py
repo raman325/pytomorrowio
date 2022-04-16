@@ -5,7 +5,6 @@ import sys
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Mapping, Sequence
-from unittest.mock import AsyncMock, Mock, PropertyMock
 
 from aiohttp import (
     ClientSession,
@@ -15,9 +14,9 @@ from aiohttp import (
 )
 
 if sys.version_info < (3, 8):
-    from asynctest import patch
+    from asynctest import patch, Mock, PropertyMock
 else:
-    from unittest.mock import patch
+    from unittest.mock import patch, Mock, PropertyMock
 
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import (
@@ -90,7 +89,7 @@ def set_mock_return_value(mock: Mock, return_value):
 
 @patch.object(TomorrowioV4, "rate_limits", new_callable=PropertyMock)
 @patch.object(TomorrowioV4, "_call_api")
-async def test_rate_limits(call_api_mock: AsyncMock, rate_limits_mock: Mock):
+async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
     rate_limits_return_value = {
         "RateLimit-Limit": "3",
         "RateLimit-Remaining": "2",
@@ -127,7 +126,7 @@ async def test_rate_limits(call_api_mock: AsyncMock, rate_limits_mock: Mock):
 
 
 @patch.object(TomorrowioV4, "_call_api")
-async def test_timelines_hourly_good(call_api_mock: AsyncMock):
+async def test_timelines_hourly_good(call_api_mock: Mock):
     call_api_mock.return_value = load_json("timelines_hourly_good.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
@@ -175,7 +174,7 @@ async def test_timelines_hourly_good(call_api_mock: AsyncMock):
 
 
 @patch.object(TomorrowioV4, "_call_api")
-async def test_timelines_daily_good(call_api_mock: AsyncMock):
+async def test_timelines_daily_good(call_api_mock: Mock):
     call_api_mock.return_value = load_json("timelines_daily_good.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
@@ -219,7 +218,7 @@ async def test_timelines_daily_good(call_api_mock: AsyncMock):
 
 
 @patch.object(TomorrowioV4, "_call_api")
-async def test_timelines_5min_good(call_api_mock: AsyncMock):
+async def test_timelines_5min_good(call_api_mock: Mock):
     call_api_mock.return_value = load_json("timelines_5min_good.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
