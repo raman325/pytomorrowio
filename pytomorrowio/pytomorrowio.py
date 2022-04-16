@@ -282,12 +282,10 @@ class TomorrowioV4:
         self._num_api_requests = 0
         ret_data = {CURRENT: {}, FORECASTS: {}}
         for i in range(0, ceil(len(realtime_fields) / MAX_FIELDS)):
-            start_index = i * MAX_FIELDS
-            end_index = (i + 1) * MAX_FIELDS
             data = await self._call_api(
                 {
                     "timesteps": ["current"],
-                    "fields": realtime_fields[start_index:end_index],
+                    "fields": realtime_fields[i * MAX_FIELDS:(i + 1) * MAX_FIELDS],
                 }
             )
             if (
