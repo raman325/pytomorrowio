@@ -288,13 +288,14 @@ async def test_timelines_realtime_and_nowcast_good(call_api_mock: Mock):
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
 
-    realtime_fields = api.available_fields(REALTIME)
-    nowcast_fields = api.available_fields(ONE_MINUTE)
     res = await api.realtime_and_all_forecasts(
-        realtime_fields, forecast_or_nowcast_fields=nowcast_fields, nowcast_timestep=1
+        realtime_fields=api.available_fields(REALTIME),
+        forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+        nowcast_timestep=1,
     )
 
-    # assert that API call count went up by 2
+    assert call_api_mock.call_count == 2
+    # assert that API call count also went up by 2
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -307,7 +308,7 @@ async def test_timelines_realtime_and_nowcast_good(call_api_mock: Mock):
     assert isinstance(forecasts, Mapping)
     assert set(forecasts.keys()) == {"hourly", "nowcast", "daily"}
 
-    for key, expected_count in [("hourly", 360), ("nowcast", 721), ("daily", 16)]:
+    for key, expected_count in {"nowcast": 721, "hourly": 360, "daily": 16}.items():
         forecast = forecasts[key]
         assert isinstance(forecast, Sequence)
         assert len(forecast) == expected_count
@@ -333,7 +334,8 @@ async def test_timelines_realtime_nowcast_hourly_daily(call_api_mock: Mock):
         nowcast_timestep=1,
     )
 
-    # assert that API call count went up by 4
+    assert call_api_mock.call_count == 4
+    # assert that API call count also went up by 4
 
     assert res is not None
     assert isinstance(res, Mapping)
