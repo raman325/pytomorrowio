@@ -77,7 +77,7 @@ async def _test_capture_request_and_response():
     # Remove leading underscore to capture request & response
     async with ClientSession(trace_configs=[create_trace_config()]) as session:
         api = TomorrowioV4(
-            "Fj4NElrDkKnf76zxuMYnFDVxfrZsvQKE", *GPS_COORD, session=session
+            "real_api_key", *GPS_COORD, session=session
         )
 
         await api.realtime_and_all_forecasts(
