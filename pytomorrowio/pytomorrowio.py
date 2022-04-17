@@ -160,9 +160,9 @@ class TomorrowioV4:
         except ClientConnectionError as error:
             raise CantConnectException() from error
 
-        self._rate_limits = CIMultiDict({
-            k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()
-        })
+        self._rate_limits = CIMultiDict(
+            {k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()}
+        )
 
         if resp.status == HTTPStatus.OK:
             return resp_json
