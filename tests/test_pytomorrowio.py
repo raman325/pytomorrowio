@@ -299,7 +299,7 @@ async def test_timelines_realtime_and_nowcast_good(call_api_mock: Mock):
 
     forecasts = res.get("forecasts")
     assert isinstance(forecasts, Mapping)
-    assert list(forecasts.keys()) == ["hourly", "nowcast", "daily"]
+    assert set(forecasts.keys()) == {"hourly", "nowcast", "daily"}
 
     for key, expected_count in [("hourly", 360), ("nowcast", 721), ("daily", 16)]:
         forecast = forecasts[key]
