@@ -76,12 +76,18 @@ def load_json(file_name: str):
 async def _test_capture_request_and_response():
     # Remove leading underscore to capture request & response
     async with ClientSession(trace_configs=[create_trace_config()]) as session:
-        api = TomorrowioV4("real_api_key", *GPS_COORD, session=session)
-
-        available_fields = api.available_fields(
-            ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+        api = TomorrowioV4(
+            "Fj4NElrDkKnf76zxuMYnFDVxfrZsvQKE", *GPS_COORD, session=session
         )
-        await api.forecast_daily(available_fields)
+
+        await api.realtime_and_all_forecasts(
+            realtime_fields=api.available_fields(REALTIME),
+            forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+            hourly_fields=api.available_fields(ONE_HOUR),
+            daily_fields=api.available_fields(ONE_DAY),
+            nowcast_timestep=1,
+        )
+
         assert False
 
 
@@ -109,7 +115,7 @@ async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
 
     call_api_mock.side_effect = lambda _: set_mock_return_value(
         rate_limits_mock, rate_limits_return_value
-    ) or load_json("timelines_hourly_good.json")
+    ) or load_json("timelines_1hour.json")
 
     rate_limits_mock.return_value = CIMultiDict()
 
@@ -130,7 +136,7 @@ async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
 
 @patch.object(TomorrowioV4, "_call_api")
 async def test_timelines_hourly_good(call_api_mock: Mock):
-    call_api_mock.return_value = load_json("timelines_hourly_good.json")
+    call_api_mock.return_value = load_json("timelines_1hour.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
     available_fields = api.available_fields(
@@ -178,7 +184,7 @@ async def test_timelines_hourly_good(call_api_mock: Mock):
 
 @patch.object(TomorrowioV4, "_call_api")
 async def test_timelines_daily_good(call_api_mock: Mock):
-    call_api_mock.return_value = load_json("timelines_daily_good.json")
+    call_api_mock.return_value = load_json("timelines_1day.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
     available_fields = api.available_fields(
@@ -222,7 +228,7 @@ async def test_timelines_daily_good(call_api_mock: Mock):
 
 @patch.object(TomorrowioV4, "_call_api")
 async def test_timelines_5min_good(call_api_mock: Mock):
-    call_api_mock.return_value = load_json("timelines_5min_good.json")
+    call_api_mock.return_value = load_json("timelines_5min.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
     available_fields = api.available_fields(
@@ -249,7 +255,7 @@ async def test_timelines_5min_good(call_api_mock: Mock):
 
 @patch.object(TomorrowioV4, "_call_api")
 async def test_timelines_realtime_good(call_api_mock: Mock):
-    call_api_mock.return_value = load_json("timelines_realtime_good.json")
+    call_api_mock.return_value = load_json("timelines_realtime.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
     available_fields = api.available_fields(FIVE_MINUTES)
@@ -275,9 +281,9 @@ async def test_timelines_realtime_good(call_api_mock: Mock):
 @patch.object(TomorrowioV4, "_call_api")
 async def test_timelines_realtime_and_nowcast_good(call_api_mock: Mock):
     call_api_mock.side_effect = [
-        load_json("timelines_realtime_and_nowcast_1_of_2.json"),
-        load_json("timelines_realtime_and_nowcast_2_of_2.json"),
-        None, # this ensures that another call isn't made
+        load_json("timelines_realtime.json"),
+        load_json("timelines_realtime_1min_1hour_1day.json"),
+        None,  # this ensures that another call isn't made
     ]
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD)
@@ -295,7 +301,7 @@ async def test_timelines_realtime_and_nowcast_good(call_api_mock: Mock):
 
     current = res.get("current")
     assert isinstance(current, Mapping)
-    assert current.get("temperature") == 75.43
+    assert current.get("temperature") == 74.53
 
     forecasts = res.get("forecasts")
     assert isinstance(forecasts, Mapping)
@@ -304,4 +310,44 @@ async def test_timelines_realtime_and_nowcast_good(call_api_mock: Mock):
     for key, expected_count in [("hourly", 360), ("nowcast", 721), ("daily", 16)]:
         forecast = forecasts[key]
         assert isinstance(forecast, Sequence)
+        assert len(forecast) == expected_count
+
+
+@patch.object(TomorrowioV4, "_call_api")
+async def test_timelines_realtime_nowcast_hourly_daily(call_api_mock: Mock):
+    call_api_mock.side_effect = [
+        load_json("timelines_realtime.json"),
+        load_json("timelines_1min.json"),
+        load_json("timelines_1hour.json"),
+        load_json("timelines_1day.json"),
+        None,  # this ensures that another call isn't made
+    ]
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+
+    res = await api.realtime_and_all_forecasts(
+        realtime_fields=api.available_fields(REALTIME),
+        forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+        hourly_fields=api.available_fields(ONE_HOUR),
+        daily_fields=api.available_fields(ONE_DAY),
+        nowcast_timestep=1,
+    )
+
+    # assert that API call count went up by 4
+
+    assert res is not None
+    assert isinstance(res, Mapping)
+
+    current = res.get("current")
+    assert isinstance(current, Mapping)
+    assert current.get("temperature") == 74.53
+
+    forecasts = res.get("forecasts")
+    assert isinstance(forecasts, Mapping)
+    assert set(forecasts.keys()) == {"hourly", "nowcast", "daily"}
+
+    for key, expected_count in {"nowcast": 361, "hourly": 109, "daily": 15}.items():
+        forecast = forecasts[key]
+        assert isinstance(forecast, Sequence)
+        print(key, len(forecast))
         assert len(forecast) == expected_count
