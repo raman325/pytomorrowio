@@ -241,3 +241,28 @@ async def test_timelines_5min_good(call_api_mock: Mock):
     assert isinstance(timeline, Mapping)
 
     assert timeline.get("timestep") == "5m"
+
+
+@patch.object(TomorrowioV4, "_call_api")
+async def test_timelines_realtime_good(call_api_mock: Mock):
+    call_api_mock.return_value = load_json("timelines_realtime_good.json")
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    available_fields = api.available_fields(FIVE_MINUTES)
+    res = await api.realtime(available_fields)
+    call_api_mock.assert_called_once()
+
+    assert res is not None
+    assert isinstance(res, Mapping)
+
+    data = res.get("data")
+    assert isinstance(data, Mapping)
+
+    timelines = data.get("timelines")
+    assert isinstance(timelines, Sequence)
+    assert len(timelines) == 1
+
+    timeline = timelines[0]
+    assert isinstance(timeline, Mapping)
+
+    assert timeline.get("timestep") == "current"
