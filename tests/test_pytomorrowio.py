@@ -24,6 +24,8 @@ from pytomorrowio.const import (
     FIVE_MINUTES,
     ONE_DAY,
     ONE_HOUR,
+    ONE_MINUTE,
+    REALTIME,
     TIMESTEP_DAILY,
     TIMESTEP_HOURLY,
     TYPE_POLLEN,
@@ -91,17 +93,19 @@ def set_mock_return_value(mock: Mock, return_value):
 @patch.object(TomorrowioV4, "rate_limits", new_callable=PropertyMock)
 @patch.object(TomorrowioV4, "_call_api")
 async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
-    rate_limits_return_value = CIMultiDict({
-        "RateLimit-Limit": 3,
-        "RateLimit-Remaining": 2,
-        "RateLimit-Reset": 1,
-        "X-RateLimit-Limit-Day": 500,
-        "X-RateLimit-Limit-Hour": 25,
-        "X-RateLimit-Limit-Second": 3,
-        "X-RateLimit-Remaining-Day": 447,
-        "X-RateLimit-Remaining-Hour": 24,
-        "X-RateLimit-Remaining-Second": 2,
-    })
+    rate_limits_return_value = CIMultiDict(
+        {
+            "RateLimit-Limit": 3,
+            "RateLimit-Remaining": 2,
+            "RateLimit-Reset": 1,
+            "X-RateLimit-Limit-Day": 500,
+            "X-RateLimit-Limit-Hour": 25,
+            "X-RateLimit-Limit-Second": 3,
+            "X-RateLimit-Remaining-Day": 447,
+            "X-RateLimit-Remaining-Hour": 24,
+            "X-RateLimit-Remaining-Second": 2,
+        }
+    )
 
     call_api_mock.side_effect = lambda _: set_mock_return_value(
         rate_limits_mock, rate_limits_return_value
@@ -266,3 +270,38 @@ async def test_timelines_realtime_good(call_api_mock: Mock):
     assert isinstance(timeline, Mapping)
 
     assert timeline.get("timestep") == "current"
+
+
+@patch.object(TomorrowioV4, "_call_api")
+async def test_timelines_realtime_and_nowcast_good(call_api_mock: Mock):
+    call_api_mock.side_effect = [
+        load_json("timelines_realtime_and_nowcast_1_of_2.json"),
+        load_json("timelines_realtime_and_nowcast_2_of_2.json"),
+        None, # this ensures that another call isn't made
+    ]
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+
+    realtime_fields = api.available_fields(REALTIME)
+    nowcast_fields = api.available_fields(ONE_MINUTE)
+    res = await api.realtime_and_all_forecasts(
+        realtime_fields, forecast_or_nowcast_fields=nowcast_fields, nowcast_timestep=1
+    )
+
+    # assert that API call count went up by 2
+
+    assert res is not None
+    assert isinstance(res, Mapping)
+
+    current = res.get("current")
+    assert isinstance(current, Mapping)
+    assert current.get("temperature") == 75.43
+
+    forecasts = res.get("forecasts")
+    assert isinstance(forecasts, Mapping)
+    assert list(forecasts.keys()) == ["hourly", "nowcast", "daily"]
+
+    for key, expected_count in [("hourly", 360), ("nowcast", 721), ("daily", 16)]:
+        forecast = forecasts[key]
+        assert isinstance(forecast, Sequence)
+        assert len(forecast) == expected_count
