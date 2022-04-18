@@ -11,6 +11,7 @@ isort
 black
 pylint
 pytest
+pytest-aiohttp
 pytest-asyncio
 pytest-cov
 asynctest; python_version < '3.8'
