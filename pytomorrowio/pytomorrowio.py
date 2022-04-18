@@ -139,8 +139,12 @@ class TomorrowioV4:
 
         return fields
 
+    @staticmethod
+    def _get_url() -> str:
+        # This method is required for test mocks
+        return BASE_URL_V4
+
     async def _call_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Call Tomorrow.io API."""
         if self._session:
             return await self._make_call(params, self._session)
 
@@ -152,7 +156,7 @@ class TomorrowioV4:
     ) -> Dict[str, Any]:
         try:
             resp = await session.post(
-                BASE_URL_V4,
+                self._get_url(),
                 headers=self._headers,
                 data=json.dumps({**self._params, **params}),
             )
@@ -161,7 +165,7 @@ class TomorrowioV4:
             raise CantConnectException() from error
 
         self._rate_limits = CIMultiDict(
-            {k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()}
+            {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
         )
 
         if resp.status == HTTPStatus.OK:
