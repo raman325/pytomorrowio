@@ -99,6 +99,7 @@ class TomorrowioV4:
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
         self._rate_limits: CIMultiDict = CIMultiDict()
+        self._num_api_requests: int = 0
 
     @property
     def rate_limits(self) -> CIMultiDictProxy:
@@ -109,6 +110,11 @@ class TomorrowioV4:
     def max_requests_per_day(self) -> Optional[int]:
         """Return the maximum number of requests per day."""
         return self.rate_limits.get(HEADER_DAILY_API_LIMIT)
+
+    @property
+    def num_api_requests(self) -> int:
+        """The number of API requests made during the most recent call."""
+        return self._num_api_requests
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -169,6 +175,7 @@ class TomorrowioV4:
         )
 
         if resp.status == HTTPStatus.OK:
+            self._num_api_requests += 1
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
             raise MalformedRequestException(resp_json, resp.headers)
@@ -180,6 +187,7 @@ class TomorrowioV4:
 
     async def realtime(self, fields: List[str]) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
+        self._num_api_requests = 0
         return await self._call_api(
             {
                 "fields": process_v4_fields(fields, REALTIME),
@@ -196,6 +204,7 @@ class TomorrowioV4:
         **kwargs,
     ) -> Dict[str, Any]:
         """Return forecast data from Tomorrow.io's API for a given time period."""
+        self._num_api_requests = 0
         if timestep not in VALID_TIMESTEPS:
             raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
         fields = process_v4_fields(fields, timestep)
@@ -279,6 +288,7 @@ class TomorrowioV4:
         `forecast_or_nowcast_fields` will be used to get nowcast, hourly, and daily
         data.
         """
+        self._num_api_requests = 0
         ret_data = {}
         data = await self._call_api(
             {

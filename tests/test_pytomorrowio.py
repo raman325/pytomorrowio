@@ -62,12 +62,16 @@ async def test_rate_limits(aiohttp_client, mock_url):
         ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
 
-    forecast = await api.forecast_hourly(available_fields)
+    assert api.max_requests_per_day is None
+    assert api.num_api_requests == 0
 
-    assert forecast is not None
+    forecast = await api.forecast_hourly(available_fields)
 
     assert api.max_requests_per_day == 500
     assert api.rate_limits.get("X-RateLimit-Remaining-Day") == 484
+    assert api.num_api_requests == 1
+
+    assert forecast is not None
 
 
 async def test_timelines_hourly_good(aiohttp_client, mock_url):
@@ -79,6 +83,8 @@ async def test_timelines_hourly_good(aiohttp_client, mock_url):
     )
 
     res = await api.forecast_hourly(available_fields)
+
+    assert api.num_api_requests == 1
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -125,6 +131,8 @@ async def test_timelines_daily_good(aiohttp_client, mock_url):
     )
     res = await api.forecast_daily(available_fields)
 
+    assert api.num_api_requests == 1
+
     assert res is not None
     assert isinstance(res, Mapping)
 
@@ -167,6 +175,8 @@ async def test_timelines_5min_good(aiohttp_client, mock_url):
     )
     res = await api.forecast_nowcast(available_fields)
 
+    assert api.num_api_requests == 1
+
     assert res is not None
     assert isinstance(res, Mapping)
 
@@ -189,6 +199,8 @@ async def test_timelines_realtime_good(aiohttp_client, mock_url):
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     available_fields = api.available_fields(FIVE_MINUTES)
     res = await api.realtime(available_fields)
+
+    assert api.num_api_requests == 1
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -220,7 +232,7 @@ async def test_timelines_realtime_and_nowcast_good(aiohttp_client, mock_url):
         nowcast_timestep=1,
     )
 
-    # assert that API call count also went up by 2
+    assert api.num_api_requests == 2
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -260,7 +272,7 @@ async def test_timelines_realtime_nowcast_hourly_daily(aiohttp_client, mock_url)
         nowcast_timestep=1,
     )
 
-    # assert that API call count also went up by 4
+    assert api.num_api_requests == 4
 
     assert res is not None
     assert isinstance(res, Mapping)
