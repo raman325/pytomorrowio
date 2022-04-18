@@ -196,8 +196,7 @@ class TomorrowioV4:
         if timestep not in VALID_TIMESTEPS:
             raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
         fields = process_v4_fields(fields, timestep)
-        if timestep > ONE_HOUR:
-            fields = self.convert_fields_to_measurements(fields)
+        fields = self.convert_fields_to_measurements(fields)
 
         params: Dict[str, Any] = {
             "fields": fields,
