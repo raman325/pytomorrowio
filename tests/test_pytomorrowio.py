@@ -1,8 +1,10 @@
 """Tests for `pytomorrowio` package."""
 import re
 from datetime import datetime
+from http import HTTPStatus
 from typing import Mapping, Sequence
 
+import pytest
 from aiohttp import ClientSession
 
 from pytomorrowio import TomorrowioV4
@@ -17,6 +19,11 @@ from pytomorrowio.const import (
     TYPE_POLLEN,
     TYPE_PRECIPITATION,
     TYPE_WEATHER,
+)
+from pytomorrowio.exceptions import (
+    InvalidAPIKeyException,
+    MalformedRequestException,
+    RateLimitedException,
 )
 
 from .helpers import create_session, create_trace_config
@@ -40,21 +47,9 @@ async def _test_capture_request_and_response():
         assert False  # force traces to be displayed
 
 
-async def test_rate_limits(aiohttp_client, mock_url):
-    headers = {
-        "RateLimit-Limit": "3",
-        "RateLimit-Remaining": "2",
-        "RateLimit-Reset": "1",
-        "X-RateLimit-Limit-Day": "500",
-        "X-RateLimit-Limit-Hour": "25",
-        "X-RateLimit-Limit-Second": "3",
-        "X-RateLimit-Remaining-Day": "484",
-        "X-RateLimit-Remaining-Hour": "22",
-        "X-RateLimit-Remaining-Second": "2",
-    }
-
+async def test_raises_malformed_request(aiohttp_client, mock_url):
     session = await create_session(
-        aiohttp_client, "timelines_1hour.json", headers=headers
+        aiohttp_client, "timelines_1hour.json", status=HTTPStatus.BAD_REQUEST
     )
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
@@ -65,13 +60,63 @@ async def test_rate_limits(aiohttp_client, mock_url):
     assert api.max_requests_per_day is None
     assert api.num_api_requests == 0
 
-    forecast = await api.forecast_hourly(available_fields)
+    with pytest.raises(MalformedRequestException):
+        await api.forecast_hourly(available_fields)
 
-    assert api.max_requests_per_day == 500
+
+async def test_raises_invalid_api_key(aiohttp_client, mock_url):
+    session = await create_session(
+        aiohttp_client, "timelines_1hour.json", status=HTTPStatus.UNAUTHORIZED
+    )
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    available_fields = api.available_fields(
+        ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+    )
+
+    assert api.max_requests_per_day is None
+    assert api.num_api_requests == 0
+
+    with pytest.raises(InvalidAPIKeyException):
+        await api.forecast_hourly(available_fields)
+
+
+async def test_raises_rate_limited(aiohttp_client, mock_url):
+    headers = {
+        "RateLimit-Limit": "3",
+        "RateLimit-Remaining": "0",
+        "RateLimit-Reset": "1",
+        "X-RateLimit-Limit-Day": "500",
+        "X-RateLimit-Limit-Hour": "25",
+        "X-RateLimit-Limit-Second": "3",
+        "X-RateLimit-Remaining-Day": "484",
+        "X-RateLimit-Remaining-Hour": "22",
+        "X-RateLimit-Remaining-Second": "0",
+    }
+
+    session = await create_session(
+        aiohttp_client,
+        "timelines_1hour.json",
+        headers=headers,
+        status=HTTPStatus.TOO_MANY_REQUESTS,
+    )
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    available_fields = api.available_fields(
+        ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+    )
+
+    assert api.max_requests_per_day is None
+    assert api.num_api_requests == 0
+
+    with pytest.raises(RateLimitedException):
+        await api.forecast_hourly(available_fields)
+
+    assert api.rate_limits.get("RateLimit-Reset") == 1
+    assert api.rate_limits.get("X-RateLimit-Remaining-Second") == 0
+    assert api.rate_limits.get("X-RateLimit-Remaining-Hour") == 22
     assert api.rate_limits.get("X-RateLimit-Remaining-Day") == 484
-    assert api.num_api_requests == 1
-
-    assert forecast is not None
+    assert api.max_requests_per_day == 500
 
 
 async def test_timelines_hourly_good(aiohttp_client, mock_url):

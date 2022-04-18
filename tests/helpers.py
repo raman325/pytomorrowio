@@ -1,5 +1,6 @@
 """Test helpers"""
 import json
+from http import HTTPStatus
 from types import SimpleNamespace
 from typing import List, Mapping, Optional, Union
 
@@ -19,6 +20,7 @@ async def create_session(
     file_name: Union[str, List[str]],
     *,
     headers: Optional[Mapping[str, str]] = None,
+    status: HTTPStatus = HTTPStatus.OK,
 ):
     """Create aiohttp session that returns results from a file"""
 
@@ -26,11 +28,12 @@ async def create_session(
         file_names=[file_name] if isinstance(file_name, str) else file_name,
         index=0,
         headers=headers,
+        status=status,
     )
 
     async def response_handler(request):  # pylint: disable=unused-argument
         if ns.index >= len(ns.file_names):
-            return None
+            return None  # it's too late in the pipe to generate connection exception
 
         file_name = ns.file_names[ns.index]
         ns.index += 1
@@ -38,7 +41,7 @@ async def create_session(
         with open(f"tests/fixtures/{file_name}", "r", encoding="utf8") as file:
             text = file.read()
 
-        return web.json_response(text=text, headers=ns.headers)
+        return web.json_response(text=text, headers=ns.headers, status=ns.status)
 
     app = web.Application()
     app.router.add_post(TEST_V4_PATH, response_handler)
