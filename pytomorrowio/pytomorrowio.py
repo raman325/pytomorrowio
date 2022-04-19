@@ -365,14 +365,9 @@ class TomorrowioV4:
                 "one of the other field lists"
             )
 
-        data: Dict[str, Dict[str, Any]] = {
-            CURRENT: await TomorrowioV4.realtime(
-                self, realtime_fields, reset_num_api_requests=False
-            ),
-            FORECASTS: {},
-        }
+        forecasts: Dict[str, List[Dict[str, Any]]] = {}
         if all_forecasts_fields is not None:
-            data[FORECASTS] = await TomorrowioV4.all_forecasts(
+            forecasts = await TomorrowioV4.all_forecasts(
                 self,
                 all_forecasts_fields,
                 nowcast_timestep=nowcast_timestep,
@@ -380,7 +375,7 @@ class TomorrowioV4:
             )
         else:
             if nowcast_fields is not None:
-                data[FORECASTS][NOWCAST] = await TomorrowioV4.forecast_nowcast(
+                forecasts[NOWCAST] = await TomorrowioV4.forecast_nowcast(
                     self,
                     nowcast_fields,
                     timestep=nowcast_timestep,
@@ -391,10 +386,16 @@ class TomorrowioV4:
                 (daily_fields, DAILY, TomorrowioV4.forecast_daily),
             ):
                 if fields is not None:
-                    data[FORECASTS][forecast_type] = await method(
+                    forecasts[forecast_type] = await method(
                         self, fields, reset_num_api_requests=False
                     )
-        return data
+
+        return {
+            CURRENT: await TomorrowioV4.realtime(
+                self, realtime_fields, reset_num_api_requests=False
+            ),
+            FORECASTS: forecasts,
+        }
 
 
 class TomorrowioV4Sync(TomorrowioV4):

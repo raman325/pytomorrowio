@@ -226,7 +226,7 @@ async def test_timelines_realtime_good(aiohttp_client):
 async def test_timelines_realtime_and_nowcast_good(aiohttp_client):
     session = await create_session(
         aiohttp_client,
-        ["timelines_realtime.json", "timelines_realtime_1min_1hour_1day.json"],
+        ["timelines_realtime_1min_1hour_1day.json", "timelines_realtime.json"],
     )
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
@@ -260,10 +260,10 @@ async def test_timelines_realtime_nowcast_hourly_daily(aiohttp_client):
     session = await create_session(
         aiohttp_client,
         [
-            "timelines_realtime.json",
             "timelines_1min.json",
             "timelines_1hour.json",
             "timelines_1day.json",
+            "timelines_realtime.json",
         ],
     )
 
