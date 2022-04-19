@@ -177,10 +177,13 @@ class TomorrowioV4:
             raise InvalidAPIKeyException(resp_json, resp.headers)
         if resp.status == HTTPStatus.TOO_MANY_REQUESTS:
             raise RateLimitedException(resp_json, resp.headers)
+
         try:
             resp.raise_for_status()
         except ClientResponseError as error:
             raise UnknownException(resp_json, resp.headers) from error
+
+        return {}
 
     async def realtime(
         self, fields: List[str], reset_num_api_requests: bool = True
