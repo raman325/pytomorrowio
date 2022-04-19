@@ -5,7 +5,11 @@ from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union
 
-from aiohttp import ClientConnectionError, ClientSession
+from aiohttp import (
+    ClientConnectionError,
+    ClientResponseError,
+    ClientSession,
+)
 from multidict import CIMultiDict, CIMultiDictProxy
 
 from .const import (
@@ -177,7 +181,10 @@ class TomorrowioV4:
             raise InvalidAPIKeyException(resp_json, resp.headers)
         if resp.status == HTTPStatus.TOO_MANY_REQUESTS:
             raise RateLimitedException(resp_json, resp.headers)
-        raise UnknownException(resp_json, resp.headers)
+        try:
+            resp.raise_for_status()
+        except ClientResponseError as error:
+            raise UnknownException(resp_json, resp.headers) from error
 
     async def realtime(
         self, fields: List[str], reset_num_api_requests: bool = True
@@ -214,11 +221,6 @@ class TomorrowioV4:
         """Return forecast data from Tomorrow.io's API for a given time period."""
         if reset_num_api_requests:
             self._num_api_requests = 0
-        if any(timestep not in VALID_TIMESTEPS for timestep in timesteps):
-            timestep = next(
-                timestep for timestep in timesteps if timestep not in VALID_TIMESTEPS
-            )
-            raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
 
         params: Dict[str, Any] = {
             "fields": fields,
@@ -351,12 +353,6 @@ class TomorrowioV4:
         specific fields for specific forecast types, use the corresponding fields list.
         """
         self._num_api_requests = 0
-        data: Dict[str, Dict[str, Any]] = {
-            CURRENT: await TomorrowioV4.realtime(
-                self, realtime_fields, reset_num_api_requests=False
-            ),
-            FORECASTS: {},
-        }
         if (
             not all_forecasts_fields
             and not nowcast_fields
@@ -369,6 +365,13 @@ class TomorrowioV4:
                 "Either only all_forecasts_fields list must be specified or at least "
                 "one of the other field lists"
             )
+
+        data: Dict[str, Dict[str, Any]] = {
+            CURRENT: await TomorrowioV4.realtime(
+                self, realtime_fields, reset_num_api_requests=False
+            ),
+            FORECASTS: {},
+        }
         if all_forecasts_fields is not None:
             data[FORECASTS] = await TomorrowioV4.all_forecasts(
                 self,

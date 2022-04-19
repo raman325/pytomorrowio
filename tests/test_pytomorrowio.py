@@ -3,9 +3,10 @@ import re
 from datetime import datetime
 from http import HTTPStatus
 from typing import Mapping, Sequence
+from unittest.mock import patch
 
 import pytest
-from aiohttp import ClientSession
+from aiohttp import ClientConnectionError, ClientSession
 
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import (
@@ -19,9 +20,12 @@ from pytomorrowio.const import (
     TYPE_WEATHER,
 )
 from pytomorrowio.exceptions import (
+    CantConnectException,
     InvalidAPIKeyException,
+    InvalidTimestep,
     MalformedRequestException,
     RateLimitedException,
+    UnknownException,
 )
 
 from .helpers import create_session, create_trace_config
@@ -154,9 +158,9 @@ async def test_timelines_daily_good(aiohttp_client):
     session = await create_session(aiohttp_client, "timelines_1day.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
-    available_fields = api.convert_fields_to_measurements(api.available_fields(
-        ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
-    ))
+    available_fields = api.convert_fields_to_measurements(
+        api.available_fields(ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER])
+    )
     res = await api.forecast_daily(available_fields)
 
     assert api.num_api_requests == 1
@@ -291,3 +295,40 @@ async def test_timelines_realtime_nowcast_hourly_daily(aiohttp_client):
         assert isinstance(forecast, Sequence)
         print(key, len(forecast))
         assert len(forecast) == expected_count
+
+
+async def test_errors(aiohttp_client):
+    """Test errors."""
+    with pytest.raises(ValueError):
+        TomorrowioV4("bogus_api_key", 0, 0, "fake_unit")
+
+    with pytest.raises(InvalidTimestep):
+        TomorrowioV4.available_fields("not_a_timestep", [])
+
+    session = await create_session(
+        aiohttp_client, "timelines_realtime.json", status=HTTPStatus.BAD_GATEWAY
+    )
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    with pytest.raises(UnknownException):
+        await api.realtime([])
+
+    with pytest.raises(InvalidTimestep):
+        await api.forecast_nowcast([], timestep=99)
+
+    with pytest.raises(ValueError):
+        await api.realtime_and_all_forecasts(
+            ["test"], all_forecasts_fields=["test"], nowcast_fields=["test"]
+        )
+
+    with pytest.raises(ValueError):
+        await api.realtime_and_all_forecasts(["test"])
+
+    with patch(
+        "pytomorrowio.pytomorrowio.ClientSession.post",
+        side_effect=ClientConnectionError,
+    ), pytest.raises(CantConnectException):
+        await api.realtime([])
+
+    session = await create_session(aiohttp_client, "empty_response.json")
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    assert await api.realtime([]) == {}
