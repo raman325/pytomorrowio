@@ -224,7 +224,7 @@ class TomorrowioV4:
             "fields": fields,
             **kwargs,
         }
-        timesteps_param: List[timedelta] = []
+        timesteps_param: List[str] = []
 
         for timestep in timesteps:
             if timestep == ONE_DAY:
