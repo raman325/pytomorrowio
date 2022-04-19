@@ -343,7 +343,7 @@ class TomorrowioV4:
         hourly_fields: Optional[List[str]] = None,
         daily_fields: Optional[List[str]] = None,
         nowcast_timestep: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Return realtime weather and all forecasts.
 
@@ -351,7 +351,7 @@ class TomorrowioV4:
         specific fields for specific forecast types, use the corresponding fields list.
         """
         self._num_api_requests = 0
-        data: Dict[str, Any] = {
+        data: Dict[str, Dict[str, Any]] = {
             CURRENT: await TomorrowioV4.realtime(
                 self, realtime_fields, reset_num_api_requests=False
             ),
@@ -494,7 +494,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         hourly_fields: Optional[List[str]] = None,
         daily_fields: Optional[List[str]] = None,
         nowcast_timestep: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Return realtime weather and all forecasts.
 
