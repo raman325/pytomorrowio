@@ -5,11 +5,7 @@ from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union
 
-from aiohttp import (
-    ClientConnectionError,
-    ClientResponseError,
-    ClientSession,
-)
+from aiohttp import ClientConnectionError, ClientResponseError, ClientSession
 from multidict import CIMultiDict, CIMultiDictProxy
 
 from .const import (
