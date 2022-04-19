@@ -14,8 +14,6 @@ from pytomorrowio.const import (
     ONE_HOUR,
     ONE_MINUTE,
     REALTIME,
-    TIMESTEP_DAILY,
-    TIMESTEP_HOURLY,
     TYPE_POLLEN,
     TYPE_PRECIPITATION,
     TYPE_WEATHER,
@@ -47,7 +45,7 @@ async def _test_capture_request_and_response():
         assert False  # force traces to be displayed
 
 
-async def test_raises_malformed_request(aiohttp_client, mock_url):
+async def test_raises_malformed_request(aiohttp_client):
     session = await create_session(
         aiohttp_client, "timelines_1hour.json", status=HTTPStatus.BAD_REQUEST
     )
@@ -64,7 +62,7 @@ async def test_raises_malformed_request(aiohttp_client, mock_url):
         await api.forecast_hourly(available_fields)
 
 
-async def test_raises_invalid_api_key(aiohttp_client, mock_url):
+async def test_raises_invalid_api_key(aiohttp_client):
     session = await create_session(
         aiohttp_client, "timelines_1hour.json", status=HTTPStatus.UNAUTHORIZED
     )
@@ -81,7 +79,7 @@ async def test_raises_invalid_api_key(aiohttp_client, mock_url):
         await api.forecast_hourly(available_fields)
 
 
-async def test_raises_rate_limited(aiohttp_client, mock_url):
+async def test_raises_rate_limited(aiohttp_client):
     headers = {
         "RateLimit-Limit": "3",
         "RateLimit-Remaining": "0",
@@ -119,7 +117,7 @@ async def test_raises_rate_limited(aiohttp_client, mock_url):
     assert api.max_requests_per_day == 500
 
 
-async def test_timelines_hourly_good(aiohttp_client, mock_url):
+async def test_timelines_hourly_good(aiohttp_client):
     session = await create_session(aiohttp_client, "timelines_1hour.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
@@ -152,7 +150,7 @@ async def test_timelines_hourly_good(aiohttp_client, mock_url):
         assert set(values) == set(available_fields)
 
 
-async def test_timelines_daily_good(aiohttp_client, mock_url):
+async def test_timelines_daily_good(aiohttp_client):
     session = await create_session(aiohttp_client, "timelines_1day.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
@@ -180,7 +178,7 @@ async def test_timelines_daily_good(aiohttp_client, mock_url):
         assert set(values) == set(available_fields)
 
 
-async def test_timelines_5min_good(aiohttp_client, mock_url):
+async def test_timelines_5min_good(aiohttp_client):
     session = await create_session(aiohttp_client, "timelines_5min.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
@@ -208,7 +206,7 @@ async def test_timelines_5min_good(aiohttp_client, mock_url):
         assert set(values) == set(available_fields)
 
 
-async def test_timelines_realtime_good(aiohttp_client, mock_url):
+async def test_timelines_realtime_good(aiohttp_client):
     session = await create_session(aiohttp_client, "timelines_realtime.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
@@ -221,7 +219,7 @@ async def test_timelines_realtime_good(aiohttp_client, mock_url):
     assert isinstance(res, Mapping)
 
 
-async def test_timelines_realtime_and_nowcast_good(aiohttp_client, mock_url):
+async def test_timelines_realtime_and_nowcast_good(aiohttp_client):
     session = await create_session(
         aiohttp_client,
         ["timelines_realtime.json", "timelines_realtime_1min_1hour_1day.json"],
@@ -254,7 +252,7 @@ async def test_timelines_realtime_and_nowcast_good(aiohttp_client, mock_url):
         assert len(forecast) == expected_count
 
 
-async def test_timelines_realtime_nowcast_hourly_daily(aiohttp_client, mock_url):
+async def test_timelines_realtime_nowcast_hourly_daily(aiohttp_client):
     session = await create_session(
         aiohttp_client,
         [
