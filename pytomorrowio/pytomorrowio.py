@@ -396,7 +396,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         apikey: str,
         latitude: Union[int, float, str],
         longitude: Union[int, float, str],
-        unit_system: str = "imperial",
+        unit_system: Literal["metric", "imperial"] = "imperial",
     ) -> None:
         """Initialize Synchronous Tomorrow.io v4 API object."""
         super().__init__(apikey, latitude, longitude, unit_system)
