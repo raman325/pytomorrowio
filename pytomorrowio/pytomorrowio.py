@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from aiohttp import ClientConnectionError, ClientSession
 from multidict import CIMultiDict, CIMultiDictProxy
@@ -77,7 +77,7 @@ class TomorrowioV4:
         apikey: str,
         latitude: Union[int, float, str],
         longitude: Union[int, float, str],
-        unit_system: Literal["metric", "imperial"] = "imperial",
+        unit_system: str = "imperial",
         session: Optional[ClientSession] = None,
     ) -> None:
         """Initialize Tomorrow.io API object."""
@@ -403,7 +403,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         apikey: str,
         latitude: Union[int, float, str],
         longitude: Union[int, float, str],
-        unit_system: Literal["metric", "imperial"] = "imperial",
+        unit_system: str = "imperial",
     ) -> None:
         """Initialize Synchronous Tomorrow.io v4 API object."""
         super().__init__(apikey, latitude, longitude, unit_system)
