@@ -350,7 +350,7 @@ class TomorrowioV4:
     ) -> Dict[str, Union[Dict[str, Any], List[Dict[str, Any]]]]:
         """
         Return realtime weather and all forecasts.
-        
+
         To get the same fields for all forecasts, use all_forecasts_fields. To get
         specific fields for specific forecast types, use the corresponding fields list.
         """
@@ -361,10 +361,17 @@ class TomorrowioV4:
             ),
             FORECASTS: {},
         }
-        if (all_forecasts_fields or nowcast_fields or hourly_fields or daily_fields) is None:
+        if (
+            all_forecasts_fields or nowcast_fields or hourly_fields or daily_fields
+        ) is None:
             raise ValueError("At least one field list must be specified")
-        if all_forecasts_fields is not None and (nowcast_fields or hourly_fields or daily_fields) is not None:
-            raise ValueError("Either only all_forecasts_fields list must be specified or one of the other field lists")
+        if (
+            all_forecasts_fields is not None
+            and (nowcast_fields or hourly_fields or daily_fields) is not None
+        ):
+            raise ValueError(
+                "Either only all_forecasts_fields list must be specified or one of the other field lists"
+            )
         if all_forecasts_fields is not None:
             data[FORECASTS] = await TomorrowioV4.all_forecasts(
                 self,
@@ -487,7 +494,7 @@ class TomorrowioV4Sync(TomorrowioV4):
     ) -> Dict[str, Union[Dict[str, Any], List[Dict[str, Any]]]]:
         """
         Return realtime weather and all forecasts.
-        
+
         To get the same fields for all forecasts, use all_forecasts_fields. To get
         specific fields for specific forecast types, use the corresponding fields list.
         """
