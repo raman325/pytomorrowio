@@ -366,7 +366,8 @@ class TomorrowioV4:
             raise ValueError("At least one field list must be specified")
         if all_forecasts_fields and (nowcast_fields or hourly_fields or daily_fields):
             raise ValueError(
-                "Either only all_forecasts_fields list must be specified or one of the other field lists"
+                "Either only all_forecasts_fields list must be specified or at least "
+                "one of the other field lists"
             )
         if all_forecasts_fields is not None:
             data[FORECASTS] = await TomorrowioV4.all_forecasts(
