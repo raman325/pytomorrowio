@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from aiohttp import ClientConnectionError, ClientSession
 from multidict import CIMultiDict, CIMultiDictProxy
@@ -77,16 +77,12 @@ class TomorrowioV4:
         apikey: str,
         latitude: Union[int, float, str],
         longitude: Union[int, float, str],
-        unit_system: str = "imperial",
+        unit_system: Literal["metric", "imperial"] = "imperial",
         session: Optional[ClientSession] = None,
     ) -> None:
         """Initialize Tomorrow.io API object."""
-        if unit_system.lower() not in ("metric", "imperial", "si", "us"):
+        if unit_system.lower() not in ("metric", "imperial"):
             raise ValueError("`unit_system` must be `metric` or `imperial`")
-        if unit_system.lower() == "si":
-            unit_system = "metric"
-        elif unit_system.lower() == "us":
-            unit_system = "imperial"
 
         self._apikey = apikey
         self.unit_system = unit_system.lower()
