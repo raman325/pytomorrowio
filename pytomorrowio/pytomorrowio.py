@@ -7,6 +7,7 @@ from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union
 
 from aiohttp import ClientConnectionError, ClientSession
+from multidict import CIMultiDict, CIMultiDictProxy
 
 from .const import (
     BASE_URL_V4,
@@ -97,19 +98,23 @@ class TomorrowioV4:
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self._apikey}
-        self._rate_limits: Optional[Dict[str, Any]] = None
+        self._rate_limits: CIMultiDict = CIMultiDict()
+        self._num_api_requests: int = 0
 
     @property
-    def rate_limits(self) -> Optional[Dict[str, Any]]:
+    def rate_limits(self) -> CIMultiDictProxy:
         """Return tomorrow.io rate limits for API key"""
-        return self._rate_limits
+        return CIMultiDictProxy(self._rate_limits)  # make read-only
 
     @property
     def max_requests_per_day(self) -> Optional[int]:
         """Return the maximum number of requests per day."""
-        if self.rate_limits and HEADER_DAILY_API_LIMIT in self.rate_limits:
-            return int(self.rate_limits[HEADER_DAILY_API_LIMIT])
-        return None
+        return self.rate_limits.get(HEADER_DAILY_API_LIMIT)
+
+    @property
+    def num_api_requests(self) -> int:
+        """The number of API requests made during the most recent call."""
+        return self._num_api_requests
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -140,8 +145,12 @@ class TomorrowioV4:
 
         return fields
 
+    @staticmethod
+    def _get_url() -> str:
+        # This method is required for test mocks
+        return BASE_URL_V4
+
     async def _call_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Call Tomorrow.io API."""
         if self._session:
             return await self._make_call(params, self._session)
 
@@ -153,7 +162,7 @@ class TomorrowioV4:
     ) -> Dict[str, Any]:
         try:
             resp = await session.post(
-                BASE_URL_V4,
+                self._get_url(),
                 headers=self._headers,
                 data=json.dumps({**self._params, **params}),
             )
@@ -161,11 +170,12 @@ class TomorrowioV4:
         except ClientConnectionError as error:
             raise CantConnectException() from error
 
-        self._rate_limits = {
-            k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()
-        }
+        self._rate_limits = CIMultiDict(
+            {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
+        )
 
         if resp.status == HTTPStatus.OK:
+            self._num_api_requests += 1
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
             raise MalformedRequestException(resp_json, resp.headers)
@@ -177,6 +187,7 @@ class TomorrowioV4:
 
     async def realtime(self, fields: List[str]) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
+        self._num_api_requests = 0
         return await self._call_api(
             {
                 "fields": process_v4_fields(fields, REALTIME),
@@ -193,6 +204,7 @@ class TomorrowioV4:
         **kwargs,
     ) -> Dict[str, Any]:
         """Return forecast data from Tomorrow.io's API for a given time period."""
+        self._num_api_requests = 0
         if timestep not in VALID_TIMESTEPS:
             raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
         fields = process_v4_fields(fields, timestep)
@@ -275,6 +287,7 @@ class TomorrowioV4:
         `forecast_or_nowcast_fields` will be used to get nowcast, hourly, and daily
         data.
         """
+        self._num_api_requests = 0
         ret_data = {}
         data = await self._call_api(
             {

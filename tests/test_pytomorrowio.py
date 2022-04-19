@@ -1,141 +1,135 @@
 """Tests for `pytomorrowio` package."""
-import json
 import re
-import sys
 from datetime import datetime
-from types import SimpleNamespace
+from http import HTTPStatus
 from typing import Mapping, Sequence
 
-from aiohttp import (
-    ClientSession,
-    TraceConfig,
-    TraceRequestChunkSentParams,
-    TraceRequestEndParams,
-)
-
-if sys.version_info < (3, 8):
-    from asynctest import patch, Mock, PropertyMock
-else:
-    from unittest.mock import patch, Mock, PropertyMock
+import pytest
+from aiohttp import ClientSession
 
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import (
     FIVE_MINUTES,
     ONE_DAY,
     ONE_HOUR,
+    ONE_MINUTE,
+    REALTIME,
     TIMESTEP_DAILY,
     TIMESTEP_HOURLY,
     TYPE_POLLEN,
     TYPE_PRECIPITATION,
     TYPE_WEATHER,
 )
+from pytomorrowio.exceptions import (
+    InvalidAPIKeyException,
+    MalformedRequestException,
+    RateLimitedException,
+)
+
+from .helpers import create_session, create_trace_config
 
 GPS_COORD = (28.4195, -81.5812)
 
 
-def create_trace_config() -> TraceConfig:
-    async def on_request_chunk_sent(
-        session: ClientSession,
-        trace_config_ctx: SimpleNamespace,
-        params: TraceRequestChunkSentParams,
-    ):
-        trace_config_ctx.request_body = params.chunk
-
-    async def on_request_end(
-        session: ClientSession,
-        trace_config_ctx: SimpleNamespace,
-        params: TraceRequestEndParams,
-    ):
-        print("Request:")
-        print(params.url)
-        for k, v in params.headers.items():
-            print(f"  {k}: {v}")
-        if trace_config_ctx.request_body:
-            print(trace_config_ctx.request_body)
-        print()
-        print("Response:")
-        for k, v in sorted(params.response.headers.items()):
-            print(f"  {k}: {v}")
-        resp = await params.response.json()
-        print(json.dumps(resp, indent=2))
-
-    trace_config = TraceConfig()
-    trace_config.on_request_chunk_sent.append(on_request_chunk_sent)
-    trace_config.on_request_end.append(on_request_end)
-    return trace_config
-
-
-def load_json(file_name: str):
-    with open(f"tests/fixtures/{file_name}", "r") as file:
-        return json.load(file)
-
-
 async def _test_capture_request_and_response():
-    # Remove leading underscore to capture request & response
+    # Remove leading underscore to capture request & response to stdout
     async with ClientSession(trace_configs=[create_trace_config()]) as session:
         api = TomorrowioV4("real_api_key", *GPS_COORD, session=session)
 
-        available_fields = api.available_fields(
-            ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+        await api.realtime_and_all_forecasts(
+            realtime_fields=api.available_fields(REALTIME),
+            forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+            hourly_fields=api.available_fields(ONE_HOUR),
+            daily_fields=api.available_fields(ONE_DAY),
+            nowcast_timestep=1,
         )
-        await api.forecast_daily(available_fields)
-        assert False
+
+        assert False  # force traces to be displayed
 
 
-def set_mock_return_value(mock: Mock, return_value):
-    mock.return_value = return_value
-    return None  # return None so caller can chain in lambda func
+async def test_raises_malformed_request(aiohttp_client, mock_url):
+    session = await create_session(
+        aiohttp_client, "timelines_1hour.json", status=HTTPStatus.BAD_REQUEST
+    )
 
-
-@patch.object(TomorrowioV4, "rate_limits", new_callable=PropertyMock)
-@patch.object(TomorrowioV4, "_call_api")
-async def test_rate_limits(call_api_mock: Mock, rate_limits_mock: Mock):
-    rate_limits_return_value = {
-        "RateLimit-Limit": "3",
-        "RateLimit-Remaining": "2",
-        "RateLimit-Reset": "1",
-        "X-RateLimit-Limit-Day": "500",
-        "X-RateLimit-Limit-Hour": "25",
-        "X-RateLimit-Limit-Second": "3",
-        "X-RateLimit-Remaining-Day": "447",
-        "X-RateLimit-Remaining-Hour": "24",
-        "X-RateLimit-Remaining-Second": "2",
-    }
-
-    call_api_mock.side_effect = lambda _: set_mock_return_value(
-        rate_limits_mock, rate_limits_return_value
-    ) or load_json("timelines_hourly_good.json")
-
-    rate_limits_mock.return_value = None
-
-    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     available_fields = api.available_fields(
         ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
 
-    assert api.rate_limits is None
     assert api.max_requests_per_day is None
+    assert api.num_api_requests == 0
 
-    forecast = await api.forecast_hourly(available_fields)
-    call_api_mock.assert_called_once()
+    with pytest.raises(MalformedRequestException):
+        await api.forecast_hourly(available_fields)
 
-    assert forecast is not None
 
-    assert api.rate_limits == rate_limits_return_value
+async def test_raises_invalid_api_key(aiohttp_client, mock_url):
+    session = await create_session(
+        aiohttp_client, "timelines_1hour.json", status=HTTPStatus.UNAUTHORIZED
+    )
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    available_fields = api.available_fields(
+        ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+    )
+
+    assert api.max_requests_per_day is None
+    assert api.num_api_requests == 0
+
+    with pytest.raises(InvalidAPIKeyException):
+        await api.forecast_hourly(available_fields)
+
+
+async def test_raises_rate_limited(aiohttp_client, mock_url):
+    headers = {
+        "RateLimit-Limit": "3",
+        "RateLimit-Remaining": "0",
+        "RateLimit-Reset": "1",
+        "X-RateLimit-Limit-Day": "500",
+        "X-RateLimit-Limit-Hour": "25",
+        "X-RateLimit-Limit-Second": "3",
+        "X-RateLimit-Remaining-Day": "484",
+        "X-RateLimit-Remaining-Hour": "22",
+        "X-RateLimit-Remaining-Second": "0",
+    }
+
+    session = await create_session(
+        aiohttp_client,
+        "timelines_1hour.json",
+        headers=headers,
+        status=HTTPStatus.TOO_MANY_REQUESTS,
+    )
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    available_fields = api.available_fields(
+        ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
+    )
+
+    assert api.max_requests_per_day is None
+    assert api.num_api_requests == 0
+
+    with pytest.raises(RateLimitedException):
+        await api.forecast_hourly(available_fields)
+
+    assert api.rate_limits.get("RateLimit-Reset") == 1
+    assert api.rate_limits.get("X-RateLimit-Remaining-Second") == 0
+    assert api.rate_limits.get("X-RateLimit-Remaining-Hour") == 22
+    assert api.rate_limits.get("X-RateLimit-Remaining-Day") == 484
     assert api.max_requests_per_day == 500
 
 
-@patch.object(TomorrowioV4, "_call_api")
-async def test_timelines_hourly_good(call_api_mock: Mock):
-    call_api_mock.return_value = load_json("timelines_hourly_good.json")
+async def test_timelines_hourly_good(aiohttp_client, mock_url):
+    session = await create_session(aiohttp_client, "timelines_1hour.json")
 
-    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     available_fields = api.available_fields(
         ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
 
     res = await api.forecast_hourly(available_fields)
-    call_api_mock.assert_called_once()
+
+    assert api.num_api_requests == 1
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -173,16 +167,16 @@ async def test_timelines_hourly_good(call_api_mock: Mock):
         assert set(values) == set(available_fields)
 
 
-@patch.object(TomorrowioV4, "_call_api")
-async def test_timelines_daily_good(call_api_mock: Mock):
-    call_api_mock.return_value = load_json("timelines_daily_good.json")
+async def test_timelines_daily_good(aiohttp_client, mock_url):
+    session = await create_session(aiohttp_client, "timelines_1day.json")
 
-    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     available_fields = api.available_fields(
         ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
     res = await api.forecast_daily(available_fields)
-    call_api_mock.assert_called_once()
+
+    assert api.num_api_requests == 1
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -217,16 +211,16 @@ async def test_timelines_daily_good(call_api_mock: Mock):
         assert set(values) == set(expected_values)
 
 
-@patch.object(TomorrowioV4, "_call_api")
-async def test_timelines_5min_good(call_api_mock: Mock):
-    call_api_mock.return_value = load_json("timelines_5min_good.json")
+async def test_timelines_5min_good(aiohttp_client, mock_url):
+    session = await create_session(aiohttp_client, "timelines_5min.json")
 
-    api = TomorrowioV4("bogus_api_key", *GPS_COORD)
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     available_fields = api.available_fields(
         FIVE_MINUTES, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
     res = await api.forecast_nowcast(available_fields)
-    call_api_mock.assert_called_once()
+
+    assert api.num_api_requests == 1
 
     assert res is not None
     assert isinstance(res, Mapping)
@@ -242,3 +236,102 @@ async def test_timelines_5min_good(call_api_mock: Mock):
     assert isinstance(timeline, Mapping)
 
     assert timeline.get("timestep") == "5m"
+
+
+async def test_timelines_realtime_good(aiohttp_client, mock_url):
+    session = await create_session(aiohttp_client, "timelines_realtime.json")
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    available_fields = api.available_fields(FIVE_MINUTES)
+    res = await api.realtime(available_fields)
+
+    assert api.num_api_requests == 1
+
+    assert res is not None
+    assert isinstance(res, Mapping)
+
+    data = res.get("data")
+    assert isinstance(data, Mapping)
+
+    timelines = data.get("timelines")
+    assert isinstance(timelines, Sequence)
+    assert len(timelines) == 1
+
+    timeline = timelines[0]
+    assert isinstance(timeline, Mapping)
+
+    assert timeline.get("timestep") == "current"
+
+
+async def test_timelines_realtime_and_nowcast_good(aiohttp_client, mock_url):
+    session = await create_session(
+        aiohttp_client,
+        ["timelines_realtime.json", "timelines_realtime_1min_1hour_1day.json"],
+    )
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+
+    res = await api.realtime_and_all_forecasts(
+        realtime_fields=api.available_fields(REALTIME),
+        forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+        nowcast_timestep=1,
+    )
+
+    assert api.num_api_requests == 2
+
+    assert res is not None
+    assert isinstance(res, Mapping)
+
+    current = res.get("current")
+    assert isinstance(current, Mapping)
+    assert current.get("temperature") == 74.53
+
+    forecasts = res.get("forecasts")
+    assert isinstance(forecasts, Mapping)
+    assert set(forecasts.keys()) == {"hourly", "nowcast", "daily"}
+
+    for key, expected_count in {"nowcast": 721, "hourly": 360, "daily": 16}.items():
+        forecast = forecasts[key]
+        assert isinstance(forecast, Sequence)
+        assert len(forecast) == expected_count
+
+
+async def test_timelines_realtime_nowcast_hourly_daily(aiohttp_client, mock_url):
+    session = await create_session(
+        aiohttp_client,
+        [
+            "timelines_realtime.json",
+            "timelines_1min.json",
+            "timelines_1hour.json",
+            "timelines_1day.json",
+        ],
+    )
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+
+    res = await api.realtime_and_all_forecasts(
+        realtime_fields=api.available_fields(REALTIME),
+        forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+        hourly_fields=api.available_fields(ONE_HOUR),
+        daily_fields=api.available_fields(ONE_DAY),
+        nowcast_timestep=1,
+    )
+
+    assert api.num_api_requests == 4
+
+    assert res is not None
+    assert isinstance(res, Mapping)
+
+    current = res.get("current")
+    assert isinstance(current, Mapping)
+    assert current.get("temperature") == 74.53
+
+    forecasts = res.get("forecasts")
+    assert isinstance(forecasts, Mapping)
+    assert set(forecasts.keys()) == {"hourly", "nowcast", "daily"}
+
+    for key, expected_count in {"nowcast": 361, "hourly": 109, "daily": 15}.items():
+        forecast = forecasts[key]
+        assert isinstance(forecast, Sequence)
+        print(key, len(forecast))
+        assert len(forecast) == expected_count

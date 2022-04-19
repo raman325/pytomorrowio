@@ -1,0 +1,53 @@
+{
+  "data": {
+    "timelines": [
+      {
+        "timestep": "current",
+        "endTime": "2022-04-17T02:16:00Z",
+        "startTime": "2022-04-17T02:16:00Z",
+        "intervals": [
+          {
+            "startTime": "2022-04-17T02:16:00Z",
+            "values": {
+              "cloudBase": 0.25,
+              "cloudCeiling": null,
+              "cloudCover": 22,
+              "dewPoint": 68.9,
+              "fireIndex": 3,
+              "grassGrassIndex": 1,
+              "grassIndex": 1,
+              "humidity": 83,
+              "precipitationIntensity": 0,
+              "precipitationProbability": 0,
+              "precipitationType": 1,
+              "pressureSeaLevel": 30.04,
+              "pressureSurfaceLevel": 29.92,
+              "temperature": 74.53,
+              "temperatureApparent": 74.53,
+              "treeIndex": 3,
+              "visibility": 9.91,
+              "weatherCode": 1100,
+              "weedIndex": 0,
+              "weedRagweedIndex": 0,
+              "windDirection": 114.31,
+              "windGust": 10.35,
+              "windSpeed": 3.36
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": [
+    {
+      "code": 246001,
+      "type": "Time Bounded Field",
+      "message": "The following field is not supported for a time range: 'hailBinary'",
+      "meta": {
+        "field": "hailBinary",
+        "from": "2022-04-17T00:46:00Z",
+        "to": "2022-04-17T02:16:00Z"
+      }
+    }
+  ]
+}
