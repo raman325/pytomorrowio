@@ -38,7 +38,7 @@ async def _test_capture_request_and_response():
 
         await api.realtime_and_all_forecasts(
             realtime_fields=api.available_fields(REALTIME),
-            forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+            nowcast_fields=api.available_fields(ONE_MINUTE),
             hourly_fields=api.available_fields(ONE_HOUR),
             daily_fields=api.available_fields(ONE_DAY),
             nowcast_timestep=1,
@@ -132,25 +132,10 @@ async def test_timelines_hourly_good(aiohttp_client, mock_url):
     assert api.num_api_requests == 1
 
     assert res is not None
-    assert isinstance(res, Mapping)
+    assert isinstance(res, list)
+    assert len(res) == 109
 
-    data = res.get("data")
-    assert isinstance(data, Mapping)
-
-    timelines = data.get("timelines")
-    assert isinstance(timelines, Sequence)
-    assert len(timelines) == 1
-
-    timeline = timelines[0]
-    assert isinstance(timeline, Mapping)
-
-    assert timeline.get("timestep") == TIMESTEP_HOURLY
-
-    intervals = timeline.get("intervals")
-    assert isinstance(intervals, Sequence)
-    assert len(intervals) == 109
-
-    for interval in intervals:
+    for interval in res:
         assert isinstance(interval, Mapping)
 
         start_time = interval.get("startTime")
@@ -171,35 +156,19 @@ async def test_timelines_daily_good(aiohttp_client, mock_url):
     session = await create_session(aiohttp_client, "timelines_1day.json")
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
-    available_fields = api.available_fields(
+    available_fields = api.convert_fields_to_measurements(api.available_fields(
         ONE_DAY, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
-    )
+    ))
     res = await api.forecast_daily(available_fields)
 
     assert api.num_api_requests == 1
 
     assert res is not None
-    assert isinstance(res, Mapping)
+    assert isinstance(res, list)
 
-    data = res.get("data")
-    assert isinstance(data, Mapping)
+    assert len(res) == 15
 
-    timelines = data.get("timelines")
-    assert isinstance(timelines, Sequence)
-    assert len(timelines) == 1
-
-    timeline = timelines[0]
-    assert isinstance(timeline, Mapping)
-
-    assert timeline.get("timestep") == TIMESTEP_DAILY
-
-    intervals = timeline.get("intervals")
-    assert isinstance(intervals, Sequence)
-    assert len(intervals) == 15
-
-    expected_values = api.convert_fields_to_measurements(available_fields)
-
-    for interval in intervals:
+    for interval in res:
         assert isinstance(interval, Mapping)
 
         start_time = interval.get("startTime")
@@ -208,7 +177,7 @@ async def test_timelines_daily_good(aiohttp_client, mock_url):
         values = interval.get("values")
         assert isinstance(values, Mapping)
 
-        assert set(values) == set(expected_values)
+        assert set(values) == set(available_fields)
 
 
 async def test_timelines_5min_good(aiohttp_client, mock_url):
@@ -223,19 +192,20 @@ async def test_timelines_5min_good(aiohttp_client, mock_url):
     assert api.num_api_requests == 1
 
     assert res is not None
-    assert isinstance(res, Mapping)
+    assert isinstance(res, list)
 
-    data = res.get("data")
-    assert isinstance(data, Mapping)
+    assert len(res) == 73
 
-    timelines = data.get("timelines")
-    assert isinstance(timelines, Sequence)
-    assert len(timelines) == 1
+    for interval in res:
+        assert isinstance(interval, Mapping)
 
-    timeline = timelines[0]
-    assert isinstance(timeline, Mapping)
+        start_time = interval.get("startTime")
+        assert isinstance(start_time, str)
 
-    assert timeline.get("timestep") == "5m"
+        values = interval.get("values")
+        assert isinstance(values, Mapping)
+
+        assert set(values) == set(available_fields)
 
 
 async def test_timelines_realtime_good(aiohttp_client, mock_url):
@@ -250,18 +220,6 @@ async def test_timelines_realtime_good(aiohttp_client, mock_url):
     assert res is not None
     assert isinstance(res, Mapping)
 
-    data = res.get("data")
-    assert isinstance(data, Mapping)
-
-    timelines = data.get("timelines")
-    assert isinstance(timelines, Sequence)
-    assert len(timelines) == 1
-
-    timeline = timelines[0]
-    assert isinstance(timeline, Mapping)
-
-    assert timeline.get("timestep") == "current"
-
 
 async def test_timelines_realtime_and_nowcast_good(aiohttp_client, mock_url):
     session = await create_session(
@@ -273,7 +231,7 @@ async def test_timelines_realtime_and_nowcast_good(aiohttp_client, mock_url):
 
     res = await api.realtime_and_all_forecasts(
         realtime_fields=api.available_fields(REALTIME),
-        forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+        all_forecasts_fields=api.available_fields(ONE_MINUTE),
         nowcast_timestep=1,
     )
 
@@ -311,7 +269,7 @@ async def test_timelines_realtime_nowcast_hourly_daily(aiohttp_client, mock_url)
 
     res = await api.realtime_and_all_forecasts(
         realtime_fields=api.available_fields(REALTIME),
-        forecast_or_nowcast_fields=api.available_fields(ONE_MINUTE),
+        nowcast_fields=api.available_fields(ONE_MINUTE),
         hourly_fields=api.available_fields(ONE_HOUR),
         daily_fields=api.available_fields(ONE_DAY),
         nowcast_timestep=1,
