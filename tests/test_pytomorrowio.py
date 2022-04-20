@@ -340,3 +340,8 @@ async def test_errors(aiohttp_client):
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     with pytest.raises(UnknownException):
         await api.realtime([])
+
+    session = await create_session(aiohttp_client, "empty_response.json")
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    with pytest.raises(UnknownException):
+        await api.forecast_nowcast([])

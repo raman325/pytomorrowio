@@ -240,7 +240,7 @@ class TomorrowioV4:
 
         forecasts: Dict[str, List[Dict[str, Any]]] = {}
         data = await self._call_api(params)
-        if "data" in data and "timelines" in data["data"]:
+        try:
             for timeline in data["data"]["timelines"]:
                 if timeline["timestep"] == TIMESTEP_DAILY:
                     key = DAILY
@@ -249,7 +249,8 @@ class TomorrowioV4:
                 else:
                     key = NOWCAST
                 forecasts[key] = timeline["intervals"]
-
+        except KeyError as error:
+            raise UnknownException(data) from error
         return forecasts
 
     async def forecast_nowcast(
