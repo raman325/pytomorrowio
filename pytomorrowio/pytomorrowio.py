@@ -207,6 +207,18 @@ class TomorrowioV4:
 
         if resp.status == HTTPStatus.OK:
             self._num_api_requests += 1
+            for warning in set(
+                warning["message"] for warning in resp_json.get("warnings", [])
+            ):
+                _LOGGER.warning(
+                    (
+                        "While calling the API for the following timesteps: [%s], the "
+                        "following warning was returned: %s"
+                    ),
+                    ", ".join(params["timesteps"]),
+                    warning,
+                )
+
             return resp_json
         if resp.status == HTTPStatus.BAD_REQUEST:
             raise MalformedRequestException(resp_json, resp.headers)
