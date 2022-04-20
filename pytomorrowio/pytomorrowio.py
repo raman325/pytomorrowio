@@ -180,11 +180,14 @@ class TomorrowioV4:
     async def _make_call(
         self, params: Dict[str, Any], session: ClientSession
     ) -> Dict[str, Any]:
-        if (
-            self._rate_limits
-            and self._rate_limits[HEADER_REMAINING_CALLS_IN_SECOND] == 0
-        ):
-            await asyncio.sleep(1)
+        try:
+            if (
+                self._rate_limits
+                and self._rate_limits[HEADER_REMAINING_CALLS_IN_SECOND] == 0
+            ):
+                await asyncio.sleep(1)
+        except LookupError as error:
+            raise UnknownException("Missing Header") from error
 
         try:
             resp = await session.post(
