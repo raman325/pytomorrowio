@@ -382,7 +382,8 @@ class TomorrowioV4:
 
         forecasts: Dict[str, List[Dict[str, Any]]] = {}
         if all_forecasts_fields:
-            forecasts = await self.all_forecasts(
+            forecasts = await TomorrowioV4.all_forecasts(
+                self,
                 all_forecasts_fields,
                 nowcast_timestep=nowcast_timestep,
                 reset_num_api_requests=False,
@@ -395,8 +396,8 @@ class TomorrowioV4:
             ]:
                 if fields:
                     forecasts.update(
-                        await self.forecast(
-                            [timestep], fields, reset_num_api_requests=False
+                        await TomorrowioV4.forecast(
+                            self, [timestep], fields, reset_num_api_requests=False
                         )
                     )
 
