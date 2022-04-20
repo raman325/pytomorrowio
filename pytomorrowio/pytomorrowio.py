@@ -221,10 +221,10 @@ class TomorrowioV4:
                     "fields": fields[i : i + MAX_FIELDS_PER_REQUEST],
                 }
             )
-        try:
-            ret_data.update(data["data"]["timelines"][0]["intervals"][0]["values"])
-        except LookupError as error:
-            raise UnknownException(data) from error
+            try:
+                ret_data.update(data["data"]["timelines"][0]["intervals"][0]["values"])
+            except LookupError as error:
+                raise UnknownException(data) from error
 
         return ret_data
 
