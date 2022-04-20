@@ -207,8 +207,9 @@ class TomorrowioV4:
 
         if resp.status == HTTPStatus.OK:
             self._num_api_requests += 1
-            warnings = {warning["message"] for warning in resp_json.get("warnings", [])}
-            for warning in warnings:
+            for warning in set(
+                warning["message"] for warning in resp_json.get("warnings", [])
+            ):
                 _LOGGER.warning(
                     (
                         "While calling the API for the following timesteps: %s, the "
