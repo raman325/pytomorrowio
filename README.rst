@@ -24,7 +24,7 @@ Example Code
 -------------
 .. code-block:: python
 
-  from pytomorrowio import TomorrowioSync
+  from pytomorrowio import TomorrowioV4Sync
   api = TomorrowioV4Sync("MY_API_KEY", latitude, longitude)
   print(api.realtime(api.available_fields(timedelta(0))))
   print(api.forecast_nowcast(api.available_fields(timedelta(minutes=5))), start_time, timedelta_duration, timestep))
