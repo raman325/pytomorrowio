@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Union
 
-from aiohttp import ClientConnectionError, ClientResponseError, ClientSession
+from aiohttp import ClientConnectionError, ClientSession
 from multidict import CIMultiDict, CIMultiDictProxy
 
 from .const import (
@@ -178,12 +178,8 @@ class TomorrowioV4:
         if resp.status == HTTPStatus.TOO_MANY_REQUESTS:
             raise RateLimitedException(resp_json, resp.headers)
 
-        try:
-            resp.raise_for_status()
-        except ClientResponseError as error:
-            raise UnknownException(resp_json, resp.headers) from error
-
-        return {}
+        resp.raise_for_status()
+        raise UnknownException(resp_json, resp.headers)
 
     async def realtime(
         self, fields: List[str], reset_num_api_requests: bool = True
@@ -198,15 +194,10 @@ class TomorrowioV4:
                 "fields": fields,
             }
         )
-        if (
-            "data" in data
-            and "timelines" in data["data"]
-            and "intervals" in data["data"]["timelines"][0]
-            and "values" in data["data"]["timelines"][0]["intervals"][0]
-        ):
+        try:
             return data["data"]["timelines"][0]["intervals"][0]["values"]
-
-        return {}
+        except (IndexError, KeyError) as error:
+            raise UnknownException(data) from error
 
     async def _forecast(
         self,

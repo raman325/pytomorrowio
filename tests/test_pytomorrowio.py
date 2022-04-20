@@ -6,7 +6,7 @@ from typing import Mapping, Sequence
 from unittest.mock import patch
 
 import pytest
-from aiohttp import ClientConnectionError, ClientSession
+from aiohttp import ClientConnectionError, ClientResponseError, ClientSession
 
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import (
@@ -299,14 +299,21 @@ async def test_timelines_realtime_nowcast_hourly_daily(aiohttp_client):
 
 async def test_errors(aiohttp_client):
     """Test errors."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unit_system"):
         TomorrowioV4("bogus_api_key", 0, 0, "fake_unit")
 
     with pytest.raises(InvalidTimestep):
         TomorrowioV4.available_fields("not_a_timestep", [])
 
     session = await create_session(
-        aiohttp_client, "timelines_realtime.json", status=HTTPStatus.BAD_GATEWAY
+        aiohttp_client, "empty_response.json", status=HTTPStatus.BAD_GATEWAY
+    )
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    with pytest.raises(ClientResponseError):
+        await api.realtime([])
+
+    session = await create_session(
+        aiohttp_client, "empty_response.json", status=HTTPStatus.PERMANENT_REDIRECT
     )
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     with pytest.raises(UnknownException):
@@ -315,12 +322,12 @@ async def test_errors(aiohttp_client):
     with pytest.raises(InvalidTimestep):
         await api.forecast_nowcast([], timestep=99)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Either"):
         await api.realtime_and_all_forecasts(
             ["test"], all_forecasts_fields=["test"], nowcast_fields=["test"]
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="At least"):
         await api.realtime_and_all_forecasts(["test"])
 
     with patch(
@@ -331,4 +338,5 @@ async def test_errors(aiohttp_client):
 
     session = await create_session(aiohttp_client, "empty_response.json")
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
-    assert await api.realtime([]) == {}
+    with pytest.raises(UnknownException):
+        await api.realtime([])
