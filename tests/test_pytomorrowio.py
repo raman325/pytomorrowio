@@ -190,7 +190,13 @@ async def test_timelines_daily_greater_than_max_fields_good(aiohttp_client):
         fields.append(f"{field}Min")
         fields.append(f"{field}Max")
         fields.append(field)
-    session = await create_session(aiohttp_client, ["timelines_1day_greater_than_max_fields_1.json", "timelines_1day_greater_than_max_fields_2.json"])
+    session = await create_session(
+        aiohttp_client,
+        [
+            "timelines_1day_greater_than_max_fields_1.json",
+            "timelines_1day_greater_than_max_fields_2.json",
+        ],
+    )
 
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     res = await api.forecast_daily(fields)
