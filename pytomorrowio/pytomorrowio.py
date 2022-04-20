@@ -24,6 +24,7 @@ from .const import (
     ONE_HOUR,
     ONE_MINUTE,
     THIRTY_MINUTES,
+    TIMESTEP_CURRENT,
     TIMESTEP_DAILY,
     TIMESTEP_HOURLY,
     VALID_TIMESTEPS,
@@ -217,7 +218,7 @@ class TomorrowioV4:
         for i in range(0, len(fields), MAX_FIELDS_PER_REQUEST):
             data = await self._call_api(
                 {
-                    "timesteps": ["current"],
+                    "timesteps": [TIMESTEP_CURRENT],
                     "fields": fields[i : i + MAX_FIELDS_PER_REQUEST],
                 }
             )

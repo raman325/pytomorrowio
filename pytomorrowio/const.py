@@ -13,6 +13,7 @@ HOURLY = "hourly"
 NOWCAST = "nowcast"
 FORECASTS = "forecasts"
 
+TIMESTEP_CURRENT = "current"
 TIMESTEP_HOURLY = "1h"
 TIMESTEP_DAILY = "1d"
 
