@@ -387,20 +387,15 @@ class TomorrowioV4:
                 reset_num_api_requests=False,
             )
         else:
-            for fields, forecast_type, method, kwargs in (
-                (
-                    nowcast_fields,
-                    NOWCAST,
-                    TomorrowioV4.forecast_nowcast,
-                    {"timestep": nowcast_timestep},
-                ),
-                (hourly_fields, HOURLY, TomorrowioV4.forecast_hourly, {}),
-                (daily_fields, DAILY, TomorrowioV4.forecast_daily, {}),
+            for fields, forecast_type, kwargs in (
+                (nowcast_fields, NOWCAST, {"timestep": nowcast_timestep}),
+                (hourly_fields, HOURLY, {}),
+                (daily_fields, DAILY, {}),
             ):
                 if fields is not None:
-                    forecasts[forecast_type] = await method(
-                        self, fields, reset_num_api_requests=False, **kwargs
-                    )
+                    forecasts[forecast_type] = await getattr(
+                        TomorrowioV4, f"forecast_{forecast_type}"
+                    )(self, fields, reset_num_api_requests=False, **kwargs)
 
         return {
             CURRENT: await TomorrowioV4.realtime(
