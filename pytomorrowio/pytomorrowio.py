@@ -18,6 +18,7 @@ from .const import (
     HEADER_DAILY_API_LIMIT,
     HEADERS,
     HOURLY,
+    MAX_FIELDS_PER_REQUEST,
     NOWCAST,
     ONE_DAY,
     ONE_HOUR,
@@ -212,16 +213,20 @@ class TomorrowioV4:
         if reset_num_api_requests:
             self._num_api_requests = 0
 
-        data = await self._call_api(
-            {
-                "timesteps": ["current"],
-                "fields": fields,
-            }
-        )
+        ret_data = {}
+        for i in range(0, len(fields), MAX_FIELDS_PER_REQUEST):
+            data = await self._call_api(
+                {
+                    "timesteps": ["current"],
+                    "fields": fields[i : i + MAX_FIELDS_PER_REQUEST],
+                }
+            )
         try:
-            return data["data"]["timelines"][0]["intervals"][0]["values"]
+            ret_data.update(data["data"]["timelines"][0]["intervals"][0]["values"])
         except LookupError as error:
             raise UnknownException(data) from error
+
+        return ret_data
 
     async def forecast(
         self,
@@ -237,7 +242,6 @@ class TomorrowioV4:
             self._num_api_requests = 0
 
         params: Dict[str, Any] = {
-            "fields": fields,
             "timesteps": [_timedelta_to_str(timestep) for timestep in timesteps],
             **kwargs,
         }
@@ -253,14 +257,24 @@ class TomorrowioV4:
             params["endTime"] = end_time.isoformat()
 
         forecasts: Dict[str, List[Dict[str, Any]]] = {}
-        data = await self._call_api(params)
-        try:
-            for timeline in data["data"]["timelines"]:
-                forecasts[_timestep_to_key(timeline["timestep"])] = timeline[
-                    "intervals"
-                ]
-        except KeyError as error:
-            raise UnknownException(data) from error
+        for i in range(0, len(fields), MAX_FIELDS_PER_REQUEST):
+            data = await self._call_api(
+                {**params, "fields": fields[i : i + MAX_FIELDS_PER_REQUEST]}
+            )
+            try:
+                for timeline in data["data"]["timelines"]:
+                    forecast_type = _timestep_to_key(timeline["timestep"])
+                    if forecast_type not in forecasts:
+                        forecasts[forecast_type] = timeline["intervals"]
+                    else:
+                        forecasts[forecast_type] = [
+                            {**dict_1, **dict_2}
+                            for dict_1, dict_2 in zip(
+                                forecasts[forecast_type], timeline["intervals"]
+                            )
+                        ]
+            except KeyError as error:
+                raise UnknownException(data) from error
         return forecasts
 
     async def forecast_nowcast(
