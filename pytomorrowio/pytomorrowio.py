@@ -1,4 +1,5 @@
 """Main module."""
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,7 @@ from .const import (
     FIVE_MINUTES,
     FORECASTS,
     HEADER_DAILY_API_LIMIT,
+    HEADER_REMAINING_CALLS_IN_SECOND,
     HEADERS,
     HOURLY,
     MAX_FIELDS_PER_REQUEST,
@@ -180,6 +182,15 @@ class TomorrowioV4:
     async def _make_call(
         self, params: Dict[str, Any], session: ClientSession
     ) -> Dict[str, Any]:
+        try:
+            if (
+                self._rate_limits
+                and self._rate_limits[HEADER_REMAINING_CALLS_IN_SECOND] == 0
+            ):
+                await asyncio.sleep(1)
+        except LookupError as error:
+            raise UnknownException("Missing Header") from error
+
         try:
             resp = await session.post(
                 self._get_url(),
