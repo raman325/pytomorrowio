@@ -228,7 +228,7 @@ class TomorrowioV4:
 
         return ret_data
 
-    async def forecast(
+    async def forecast(  # pylint: disable=too-many-locals
         self,
         timesteps: List[timedelta],
         fields: List[str],
@@ -252,9 +252,11 @@ class TomorrowioV4:
         else:
             start_time = datetime.now(tz=timezone.utc)
         params["startTime"] = start_time.replace(microsecond=0).isoformat()
+
         if duration:
-            end_time = (start_time + duration).replace(microsecond=0)
-            params["endTime"] = end_time.isoformat()
+            params["endTime"] = (
+                (start_time + duration).replace(microsecond=0).isoformat()
+            )
 
         forecasts: Dict[str, List[Dict[str, Any]]] = {}
         for i in range(0, len(fields), MAX_FIELDS_PER_REQUEST):
@@ -271,6 +273,7 @@ class TomorrowioV4:
                         forecast["values"].update(timeline["intervals"][idx]["values"])
             except LookupError as error:
                 raise UnknownException(data) from error
+
         return forecasts
 
     async def forecast_nowcast(
