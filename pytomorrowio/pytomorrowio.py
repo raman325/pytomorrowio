@@ -379,11 +379,8 @@ class TomorrowioV4:
         specific fields for specific forecast types, use the corresponding fields list.
         """
         self._num_api_requests = 0
-        if (
-            not all_forecasts_fields
-            and not nowcast_fields
-            and not hourly_fields
-            and not daily_fields
+        if not (
+            all_forecasts_fields or nowcast_fields or hourly_fields or daily_fields
         ):
             raise ValueError("At least one field list must be specified")
         if all_forecasts_fields and any(
@@ -403,22 +400,20 @@ class TomorrowioV4:
                 reset_num_api_requests=False,
             )
         else:
-            for fields, forecast_type, kwargs in (
-                (nowcast_fields, NOWCAST, {"timestep": nowcast_timestep}),
-                (hourly_fields, HOURLY, {}),
-                (daily_fields, DAILY, {}),
-            ):
+            for fields, timestep in [
+                (nowcast_fields, timedelta(minutes=nowcast_timestep)),
+                (hourly_fields, ONE_HOUR),
+                (daily_fields, ONE_DAY),
+            ]:
                 if fields:
-                    forecasts[forecast_type] = await getattr(
-                        TomorrowioV4, f"forecast_{forecast_type}"
-                    )(self, fields, reset_num_api_requests=False, **kwargs)
+                    forecasts.update(
+                        await TomorrowioV4.forecast(
+                            self, [timestep], fields, reset_num_api_requests=False
+                        )
+                    )
 
-        return {
-            CURRENT: await TomorrowioV4.realtime(
-                self, realtime_fields, reset_num_api_requests=False
-            ),
-            FORECASTS: forecasts,
-        }
+        current = await self.realtime(realtime_fields, reset_num_api_requests=False)
+        return {CURRENT: current, FORECASTS: forecasts}
 
 
 class TomorrowioV4Sync(TomorrowioV4):
