@@ -12,6 +12,8 @@ from .const import (
     BASE_URL_V4,
     CURRENT,
     DAILY,
+    FIFTEEN_MINUTES,
+    FIVE_MINUTES,
     FORECASTS,
     HEADER_DAILY_API_LIMIT,
     HEADERS,
@@ -19,6 +21,8 @@ from .const import (
     NOWCAST,
     ONE_DAY,
     ONE_HOUR,
+    ONE_MINUTE,
+    THIRTY_MINUTES,
     TIMESTEP_DAILY,
     TIMESTEP_HOURLY,
     VALID_TIMESTEPS,
@@ -67,6 +71,26 @@ def dt_to_utc(input_dt: datetime) -> datetime:
     if input_dt and input_dt.tzinfo:
         return input_dt.astimezone(timezone.utc)
     return input_dt
+
+
+def _timedelta_to_str(timestep: timedelta) -> str:
+    """Convert timedelta to timestep string."""
+    if timestep == ONE_DAY:
+        return TIMESTEP_DAILY
+    if timestep == ONE_HOUR:
+        return TIMESTEP_HOURLY
+    if timestep not in (THIRTY_MINUTES, FIFTEEN_MINUTES, FIVE_MINUTES, ONE_MINUTE):
+        raise InvalidTimestep(f"Invalid `timestep` value {timestep}")
+    return f"{int(timestep.total_seconds()/60)}m"
+
+
+def _timestep_to_key(timestep: str) -> str:
+    """Convert timestep to dict key."""
+    if timestep == TIMESTEP_DAILY:
+        return DAILY
+    if timestep == TIMESTEP_HOURLY:
+        return HOURLY
+    return NOWCAST
 
 
 class TomorrowioV4:
@@ -214,19 +238,9 @@ class TomorrowioV4:
 
         params: Dict[str, Any] = {
             "fields": fields,
+            "timesteps": [_timedelta_to_str(timestep) for timestep in timesteps],
             **kwargs,
         }
-        timesteps_param: List[str] = []
-
-        for timestep in timesteps:
-            if timestep == ONE_DAY:
-                timesteps_param.append(TIMESTEP_DAILY)
-            elif timestep == ONE_HOUR:
-                timesteps_param.append(TIMESTEP_HOURLY)
-            else:
-                timesteps_param.append(f"{int(timestep.total_seconds()/60)}m")
-
-        params["timesteps"] = timesteps_param
 
         if start_time:
             if not start_time.tzinfo:
@@ -242,13 +256,9 @@ class TomorrowioV4:
         data = await self._call_api(params)
         try:
             for timeline in data["data"]["timelines"]:
-                if timeline["timestep"] == TIMESTEP_DAILY:
-                    key = DAILY
-                elif timeline["timestep"] == TIMESTEP_HOURLY:
-                    key = HOURLY
-                else:
-                    key = NOWCAST
-                forecasts[key] = timeline["intervals"]
+                forecasts[_timestep_to_key(timeline["timestep"])] = timeline[
+                    "intervals"
+                ]
         except KeyError as error:
             raise UnknownException(data) from error
         return forecasts
@@ -262,8 +272,6 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> List[Dict[str, Any]]:
         """Return forecast data from Tomorrow.io's NowCast API for a given time period."""
-        if timestep not in (1, 5, 15, 30):
-            raise InvalidTimestep
         forecasts = await self._forecast(
             [timedelta(minutes=timestep)],
             fields,
