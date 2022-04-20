@@ -299,7 +299,8 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> List[Dict[str, Any]]:
         """Return forecast data from Tomorrow.io's NowCast API for a given time period."""
-        forecasts = await self.forecast(
+        forecasts = await TomorrowioV4.forecast(
+            self,
             [timedelta(minutes=timestep)],
             fields,
             start_time=start_time,
@@ -316,7 +317,8 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> List[Dict[str, Any]]:
         """Return daily forecast data from Tomorrow.io's API for a given time period."""
-        forecasts = await self.forecast(
+        forecasts = await TomorrowioV4.forecast(
+            self,
             [ONE_DAY],
             fields,
             start_time=start_time,
@@ -333,7 +335,8 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> List[Dict[str, Any]]:
         """Return hourly forecast data from Tomorrow.io's API for a given time period."""
-        forecasts = await self.forecast(
+        forecasts = await TomorrowioV4.forecast(
+            self,
             [ONE_HOUR],
             fields,
             start_time=start_time,
@@ -351,7 +354,8 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Return all forecasts."""
-        return await self.forecast(
+        return await TomorrowioV4.forecast(
+            self,
             [
                 timedelta(minutes=nowcast_timestep),
                 ONE_HOUR,
@@ -436,6 +440,26 @@ class TomorrowioV4Sync(TomorrowioV4):
         """Return realtime weather conditions from Tomorrow.io API."""
         return await super().realtime(
             fields, reset_num_api_requests=reset_num_api_requests
+        )
+
+    @async_to_sync
+    async def forecast(
+        self,
+        timesteps: List[timedelta],
+        fields: List[str],
+        start_time: Optional[datetime] = None,
+        duration: Optional[timedelta] = None,
+        reset_num_api_requests: bool = True,
+        **kwargs,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Return forecast data from Tomorrow.io's API for a given time period."""
+        return await super().forecast(
+            timesteps,
+            fields,
+            start_time=start_time,
+            duration=duration,
+            reset_num_api_requests=reset_num_api_requests,
+            **kwargs,
         )
 
     @async_to_sync
