@@ -229,7 +229,7 @@ class TomorrowioV4:
 
         return ret_data
 
-    async def forecast(  # pylint: disable=too-many-locals
+    async def forecast(
         self,
         timesteps: List[timedelta],
         fields: List[str],
@@ -270,8 +270,10 @@ class TomorrowioV4:
                     if forecast_type not in forecasts:
                         forecasts[forecast_type] = timeline["intervals"]
                         continue
-                    for idx, forecast in enumerate(forecasts[forecast_type]):
-                        forecast["values"].update(timeline["intervals"][idx]["values"])
+                    for idx in range(0, len(forecasts[forecast_type])):
+                        forecasts[forecast_type][idx]["values"].update(
+                            timeline["intervals"][idx]["values"]
+                        )
             except LookupError as error:
                 raise UnknownException(data) from error
 
