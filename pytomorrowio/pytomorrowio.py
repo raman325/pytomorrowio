@@ -212,10 +212,10 @@ class TomorrowioV4:
             ):
                 _LOGGER.warning(
                     (
-                        "While calling the API for the following timesteps: %s, the "
+                        "While calling the API for the following timesteps: [%s], the "
                         "following warning was returned: %s"
                     ),
-                    ",".join(params["timesteps"]),
+                    ", ".join(params["timesteps"]),
                     warning,
                 )
 
