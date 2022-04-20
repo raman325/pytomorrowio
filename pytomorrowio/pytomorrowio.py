@@ -412,7 +412,9 @@ class TomorrowioV4:
                         )
                     )
 
-        current = await self.realtime(realtime_fields, reset_num_api_requests=False)
+        current = await TomorrowioV4.realtime(
+            self, realtime_fields, reset_num_api_requests=False
+        )
         return {CURRENT: current, FORECASTS: forecasts}
 
 
