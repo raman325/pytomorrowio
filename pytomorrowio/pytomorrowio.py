@@ -267,13 +267,11 @@ class TomorrowioV4:
                     if forecast_type not in forecasts:
                         forecasts[forecast_type] = timeline["intervals"]
                     else:
-                        forecasts[forecast_type] = [
-                            {**dict_1, **dict_2}
-                            for dict_1, dict_2 in zip(
-                                forecasts[forecast_type], timeline["intervals"]
+                        for idx, forecast in enumerate(forecasts[forecast_type]):
+                            forecast["values"].update(
+                                timeline["intervals"][idx]["values"]
                             )
-                        ]
-            except KeyError as error:
+            except LookupError as error:
                 raise UnknownException(data) from error
         return forecasts
 

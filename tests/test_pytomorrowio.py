@@ -29,7 +29,7 @@ from pytomorrowio.exceptions import (
     UnknownException,
 )
 
-from .const import FIELDS_GREATER_THAN_MAX
+from .const import CORE_FIELDS, REALTIME_FIELDS_GREATER_THAN_MAX
 from .helpers import create_session, create_trace_config
 
 GPS_COORD = (28.4195, -81.5812)
@@ -184,6 +184,36 @@ async def test_timelines_daily_good(aiohttp_client):
         assert set(values) == set(available_fields)
 
 
+async def test_timelines_daily_greater_than_max_fields_good(aiohttp_client):
+    fields = []
+    for field in CORE_FIELDS:
+        fields.append(f"{field}Min")
+        fields.append(f"{field}Max")
+        fields.append(field)
+    session = await create_session(aiohttp_client, ["timelines_1day_greater_than_max_fields_1.json", "timelines_1day_greater_than_max_fields_2.json"])
+
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+    res = await api.forecast_daily(fields)
+
+    assert api.num_api_requests == 2
+
+    assert res is not None
+    assert isinstance(res, list)
+
+    assert len(res) == 16
+
+    for interval in res:
+        assert isinstance(interval, Mapping)
+
+        start_time = interval.get("startTime")
+        assert isinstance(start_time, str)
+
+        values = interval.get("values")
+        assert isinstance(values, Mapping)
+
+        assert set(values) == set(fields)
+
+
 async def test_timelines_5min_good(aiohttp_client):
     session = await create_session(aiohttp_client, "timelines_5min.json")
 
@@ -235,14 +265,14 @@ async def test_timelines_realtime_greater_than_max_fields_good(aiohttp_client):
     )
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
 
-    res = await api.realtime(FIELDS_GREATER_THAN_MAX)
+    res = await api.realtime(REALTIME_FIELDS_GREATER_THAN_MAX)
 
     assert api.num_api_requests == 2
 
     assert res is not None
     assert isinstance(res, Mapping)
 
-    assert set(res) == set(FIELDS_GREATER_THAN_MAX)
+    assert set(res) == set(REALTIME_FIELDS_GREATER_THAN_MAX)
     assert len(res) > MAX_FIELDS_PER_REQUEST
 
 

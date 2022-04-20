@@ -2,7 +2,7 @@
 
 TEST_V4_PATH = "/v4/timelines"
 
-FIELDS_GREATER_THAN_MAX = [
+REALTIME_FIELDS_GREATER_THAN_MAX = [
     "temperature",
     "pressureSeaLevel",
     "humidity",
@@ -58,6 +58,31 @@ FIELDS_GREATER_THAN_MAX = [
     "dewPoint",
     "pressureSurfaceLevel",
     "solarGHI",
+    "cloudBase",
+    "cloudCeiling",
+]
+
+CORE_FIELDS = [
+    "temperature",
+    "temperatureApparent",
+    "dewPoint",
+    "humidity",
+    "windSpeed",
+    "windGust",
+    "pressureSurfaceLevel",
+    "pressureSeaLevel",
+    "precipitationIntensity",
+    "rainIntensity",
+    "freezingRainIntensity",
+    "snowIntensity",
+    "sleetIntensity",
+    "precipitationProbability",
+    "rainAccumulation",
+    "snowAccumulation",
+    "sleetAccumulation",
+    "iceAccumulation",
+    "visibility",
+    "cloudCover",
     "cloudBase",
     "cloudCeiling",
 ]
