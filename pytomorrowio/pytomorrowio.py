@@ -1,5 +1,4 @@
 """Main module."""
-import asyncio
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -13,6 +12,8 @@ from .const import (
     BASE_URL_V4,
     CURRENT,
     DAILY,
+    FIFTEEN_MINUTES,
+    FIVE_MINUTES,
     FORECASTS,
     HEADER_DAILY_API_LIMIT,
     HEADERS,
@@ -20,7 +21,8 @@ from .const import (
     NOWCAST,
     ONE_DAY,
     ONE_HOUR,
-    REALTIME,
+    ONE_MINUTE,
+    THIRTY_MINUTES,
     TIMESTEP_DAILY,
     TIMESTEP_HOURLY,
     VALID_TIMESTEPS,
@@ -71,6 +73,26 @@ def dt_to_utc(input_dt: datetime) -> datetime:
     return input_dt
 
 
+def _timedelta_to_str(timestep: timedelta) -> str:
+    """Convert timedelta to timestep string."""
+    if timestep == ONE_DAY:
+        return TIMESTEP_DAILY
+    if timestep == ONE_HOUR:
+        return TIMESTEP_HOURLY
+    if timestep not in (THIRTY_MINUTES, FIFTEEN_MINUTES, FIVE_MINUTES, ONE_MINUTE):
+        raise InvalidTimestep(f"Invalid `timestep` value {timestep}")
+    return f"{int(timestep.total_seconds()/60)}m"
+
+
+def _timestep_to_key(timestep: str) -> str:
+    """Convert timestep to dict key."""
+    if timestep == TIMESTEP_DAILY:
+        return DAILY
+    if timestep == TIMESTEP_HOURLY:
+        return HOURLY
+    return NOWCAST
+
+
 class TomorrowioV4:
     """Async class to query the Tomorrow.io v4 API."""
 
@@ -83,12 +105,8 @@ class TomorrowioV4:
         session: Optional[ClientSession] = None,
     ) -> None:
         """Initialize Tomorrow.io API object."""
-        if unit_system.lower() not in ("metric", "imperial", "si", "us"):
+        if unit_system.lower() not in ("metric", "imperial"):
             raise ValueError("`unit_system` must be `metric` or `imperial`")
-        if unit_system.lower() == "si":
-            unit_system = "metric"
-        elif unit_system.lower() == "us":
-            unit_system = "imperial"
 
         self._apikey = apikey
         self.unit_system = unit_system.lower()
@@ -183,55 +201,67 @@ class TomorrowioV4:
             raise InvalidAPIKeyException(resp_json, resp.headers)
         if resp.status == HTTPStatus.TOO_MANY_REQUESTS:
             raise RateLimitedException(resp_json, resp.headers)
+
+        resp.raise_for_status()
         raise UnknownException(resp_json, resp.headers)
 
-    async def realtime(self, fields: List[str]) -> Dict[str, Any]:
+    async def realtime(
+        self, fields: List[str], reset_num_api_requests: bool = True
+    ) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
-        self._num_api_requests = 0
-        return await self._call_api(
+        if reset_num_api_requests:
+            self._num_api_requests = 0
+
+        data = await self._call_api(
             {
-                "fields": process_v4_fields(fields, REALTIME),
                 "timesteps": ["current"],
+                "fields": fields,
             }
         )
+        try:
+            return data["data"]["timelines"][0]["intervals"][0]["values"]
+        except LookupError as error:
+            raise UnknownException(data) from error
 
-    async def _forecast(
+    async def forecast(
         self,
-        timestep: timedelta,
+        timesteps: List[timedelta],
         fields: List[str],
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
+        reset_num_api_requests: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """Return forecast data from Tomorrow.io's API for a given time period."""
-        self._num_api_requests = 0
-        if timestep not in VALID_TIMESTEPS:
-            raise InvalidTimestep(f"{timestep} is not a valid 'timestep' parameter")
-        fields = process_v4_fields(fields, timestep)
-        fields = self.convert_fields_to_measurements(fields)
+        if reset_num_api_requests:
+            self._num_api_requests = 0
 
         params: Dict[str, Any] = {
             "fields": fields,
+            "timesteps": [_timedelta_to_str(timestep) for timestep in timesteps],
             **kwargs,
         }
-        if timestep == ONE_DAY:
-            params["timesteps"] = [TIMESTEP_DAILY]
-        elif timestep == ONE_HOUR:
-            params["timesteps"] = [TIMESTEP_HOURLY]
-        else:
-            params["timesteps"] = [f"{int(timestep.total_seconds()/60)}m"]
 
         if start_time:
             if not start_time.tzinfo:
                 start_time.replace(tzinfo=timezone.utc)
-            params["startTime"] = start_time.replace(microsecond=0).isoformat()
         else:
             start_time = datetime.now(tz=timezone.utc)
+        params["startTime"] = start_time.replace(microsecond=0).isoformat()
         if duration:
             end_time = (start_time + duration).replace(microsecond=0)
             params["endTime"] = end_time.isoformat()
 
-        return await self._call_api(params)
+        forecasts: Dict[str, List[Dict[str, Any]]] = {}
+        data = await self._call_api(params)
+        try:
+            for timeline in data["data"]["timelines"]:
+                forecasts[_timestep_to_key(timeline["timestep"])] = timeline[
+                    "intervals"
+                ]
+        except KeyError as error:
+            raise UnknownException(data) from error
+        return forecasts
 
     async def forecast_nowcast(
         self,
@@ -239,121 +269,133 @@ class TomorrowioV4:
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         timestep: int = 5,
-    ) -> Dict[str, Any]:
+        reset_num_api_requests: bool = True,
+    ) -> List[Dict[str, Any]]:
         """Return forecast data from Tomorrow.io's NowCast API for a given time period."""
-        if timestep not in (1, 5, 15, 30):
-            raise InvalidTimestep
-        return await self._forecast(
-            timedelta(minutes=timestep),
+        forecasts = await self.forecast(
+            [timedelta(minutes=timestep)],
             fields,
             start_time=start_time,
             duration=duration,
+            reset_num_api_requests=reset_num_api_requests,
         )
+        return forecasts[NOWCAST]
 
     async def forecast_daily(
         self,
         fields: List[str],
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
-    ) -> Dict[str, Any]:
+        reset_num_api_requests: bool = True,
+    ) -> List[Dict[str, Any]]:
         """Return daily forecast data from Tomorrow.io's API for a given time period."""
-        return await self._forecast(
-            ONE_DAY, fields, start_time=start_time, duration=duration
+        forecasts = await self.forecast(
+            [ONE_DAY],
+            fields,
+            start_time=start_time,
+            duration=duration,
+            reset_num_api_requests=reset_num_api_requests,
         )
+        return forecasts[DAILY]
 
     async def forecast_hourly(
         self,
         fields: List[str],
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
-    ) -> Dict[str, Any]:
+        reset_num_api_requests: bool = True,
+    ) -> List[Dict[str, Any]]:
         """Return hourly forecast data from Tomorrow.io's API for a given time period."""
-        return await self._forecast(
-            ONE_HOUR, fields, start_time=start_time, duration=duration
+        forecasts = await self.forecast(
+            [ONE_HOUR],
+            fields,
+            start_time=start_time,
+            duration=duration,
+            reset_num_api_requests=reset_num_api_requests,
+        )
+        return forecasts[HOURLY]
+
+    async def all_forecasts(
+        self,
+        fields: List[str],
+        start_time: Optional[datetime] = None,
+        duration: Optional[timedelta] = None,
+        nowcast_timestep: int = 5,
+        reset_num_api_requests: bool = True,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Return all forecasts."""
+        return await self.forecast(
+            [
+                timedelta(minutes=nowcast_timestep),
+                ONE_HOUR,
+                ONE_DAY,
+            ],
+            fields,
+            start_time=start_time,
+            duration=duration,
+            reset_num_api_requests=reset_num_api_requests,
         )
 
     async def realtime_and_all_forecasts(
         self,
         realtime_fields: List[str],
-        forecast_or_nowcast_fields: List[str],
-        hourly_fields: List[str] = None,
-        daily_fields: List[str] = None,
+        all_forecasts_fields: Optional[List[str]] = None,
+        nowcast_fields: Optional[List[str]] = None,
+        hourly_fields: Optional[List[str]] = None,
+        daily_fields: Optional[List[str]] = None,
         nowcast_timestep: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Return realtime weather and all forecasts.
 
-        If `hourly_fields` and `daily_fields` are not provided,
-        `forecast_or_nowcast_fields` will be used to get nowcast, hourly, and daily
-        data.
+        To get the same fields for all forecasts, use all_forecasts_fields. To get
+        specific fields for specific forecast types, use the corresponding fields list.
         """
         self._num_api_requests = 0
-        ret_data = {}
-        data = await self._call_api(
-            {
-                "timesteps": ["current"],
-                "fields": realtime_fields,
-            }
-        )
         if (
-            "data" in data
-            and "timelines" in data["data"]
-            and "intervals" in data["data"]["timelines"][0]
-            and "values" in data["data"]["timelines"][0]["intervals"][0]
+            not all_forecasts_fields
+            and not nowcast_fields
+            and not hourly_fields
+            and not daily_fields
         ):
-            ret_data[CURRENT] = data["data"]["timelines"][0]["intervals"][0]["values"]
-
-        forecasts = ret_data.setdefault(FORECASTS, {})
-        start_time = datetime.now(tz=timezone.utc).isoformat()
-
-        if not hourly_fields and not daily_fields:
-            data = await self._call_api(
-                {
-                    "timesteps": [
-                        f"{nowcast_timestep}m",
-                        TIMESTEP_HOURLY,
-                        TIMESTEP_DAILY,
-                    ],
-                    "fields": forecast_or_nowcast_fields,
-                    "startTime": start_time,
-                }
+            raise ValueError("At least one field list must be specified")
+        if all_forecasts_fields and (nowcast_fields or hourly_fields or daily_fields):
+            raise ValueError(
+                "Either only all_forecasts_fields list must be specified or at least "
+                "one of the other field lists"
             )
-            if "data" in data and "timelines" in data["data"]:
-                for timeline in data["data"]["timelines"]:
-                    if timeline["timestep"] == TIMESTEP_DAILY:
-                        key = DAILY
-                    elif timeline["timestep"] == TIMESTEP_HOURLY:
-                        key = HOURLY
-                    else:
-                        key = NOWCAST
-                    forecasts[key] = timeline["intervals"]
+
+        forecasts: Dict[str, List[Dict[str, Any]]] = {}
+        if all_forecasts_fields is not None:
+            forecasts = await TomorrowioV4.all_forecasts(
+                self,
+                all_forecasts_fields,
+                nowcast_timestep=nowcast_timestep,
+                reset_num_api_requests=False,
+            )
         else:
-            data = await self._call_api(
-                {
-                    "timesteps": [f"{nowcast_timestep}m"],
-                    "fields": forecast_or_nowcast_fields,
-                    "startTime": start_time,
-                }
-            )
-            if "data" in data and "timelines" in data["data"]:
-                forecasts[NOWCAST] = data["data"]["timelines"][0]["intervals"]
-
-            for field_list, timestep, key in (
-                (hourly_fields, TIMESTEP_HOURLY, HOURLY),
-                (daily_fields, TIMESTEP_DAILY, DAILY),
+            if nowcast_fields is not None:
+                forecasts[NOWCAST] = await TomorrowioV4.forecast_nowcast(
+                    self,
+                    nowcast_fields,
+                    timestep=nowcast_timestep,
+                    reset_num_api_requests=False,
+                )
+            for fields, forecast_type, method in (
+                (hourly_fields, HOURLY, TomorrowioV4.forecast_hourly),
+                (daily_fields, DAILY, TomorrowioV4.forecast_daily),
             ):
-                if field_list:
-                    await asyncio.sleep(1)
-                    data = await self._call_api(
-                        {
-                            "timesteps": [timestep],
-                            "fields": field_list,
-                            "startTime": start_time,
-                        }
+                if fields is not None:
+                    forecasts[forecast_type] = await method(
+                        self, fields, reset_num_api_requests=False
                     )
-                    if "data" in data and "timelines" in data["data"]:
-                        forecasts[key] = data["data"]["timelines"][0]["intervals"]
-        return ret_data
+
+        return {
+            CURRENT: await TomorrowioV4.realtime(
+                self, realtime_fields, reset_num_api_requests=False
+            ),
+            FORECASTS: forecasts,
+        }
 
 
 class TomorrowioV4Sync(TomorrowioV4):
@@ -370,9 +412,13 @@ class TomorrowioV4Sync(TomorrowioV4):
         super().__init__(apikey, latitude, longitude, unit_system)
 
     @async_to_sync
-    async def realtime(self, fields: List[str]) -> Dict[str, Any]:
+    async def realtime(
+        self, fields: List[str], reset_num_api_requests: bool = True
+    ) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
-        return await super().realtime(fields)
+        return await super().realtime(
+            fields, reset_num_api_requests=reset_num_api_requests
+        )
 
     @async_to_sync
     async def forecast_nowcast(
@@ -381,9 +427,16 @@ class TomorrowioV4Sync(TomorrowioV4):
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         timestep: int = 5,
-    ) -> Dict[str, Any]:
+        reset_num_api_requests: bool = True,
+    ) -> List[Dict[str, Any]]:
         """Return forecast data from Tomorrow.io's NowCast API for a given time period."""
-        return await super().forecast_nowcast(fields, start_time, duration, timestep)
+        return await super().forecast_nowcast(
+            fields,
+            start_time=start_time,
+            duration=duration,
+            timestep=timestep,
+            reset_num_api_requests=reset_num_api_requests,
+        )
 
     @async_to_sync
     async def forecast_daily(
@@ -391,9 +444,15 @@ class TomorrowioV4Sync(TomorrowioV4):
         fields: List[str],
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
-    ) -> Dict[str, Any]:
+        reset_num_api_requests: bool = True,
+    ) -> List[Dict[str, Any]]:
         """Return daily forecast data from Tomorrow.io's API for a given time period."""
-        return await super().forecast_daily(fields, start_time, duration)
+        return await super().forecast_daily(
+            fields,
+            start_time=start_time,
+            duration=duration,
+            reset_num_api_requests=reset_num_api_requests,
+        )
 
     @async_to_sync
     async def forecast_hourly(
@@ -401,29 +460,54 @@ class TomorrowioV4Sync(TomorrowioV4):
         fields: List[str],
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
-    ) -> Dict[str, Any]:
+        reset_num_api_requests: bool = True,
+    ) -> List[Dict[str, Any]]:
         """Return hourly forecast data from Tomorrow.io's API for a given time period."""
-        return await super().forecast_hourly(fields, start_time, duration)
+        return await super().forecast_hourly(
+            fields,
+            start_time=start_time,
+            duration=duration,
+            reset_num_api_requests=reset_num_api_requests,
+        )
+
+    @async_to_sync
+    async def all_forecasts(
+        self,
+        fields: List[str],
+        start_time: Optional[datetime] = None,
+        duration: Optional[timedelta] = None,
+        nowcast_timestep: int = 5,
+        reset_num_api_requests: bool = True,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Return all forecasts."""
+        return await super().all_forecasts(
+            fields,
+            start_time=start_time,
+            duration=duration,
+            nowcast_timestep=nowcast_timestep,
+            reset_num_api_requests=reset_num_api_requests,
+        )
 
     @async_to_sync
     async def realtime_and_all_forecasts(
         self,
         realtime_fields: List[str],
-        forecast_or_nowcast_fields: List[str],
-        hourly_fields: List[str] = None,
-        daily_fields: List[str] = None,
+        all_forecasts_fields: Optional[List[str]] = None,
+        nowcast_fields: Optional[List[str]] = None,
+        hourly_fields: Optional[List[str]] = None,
+        daily_fields: Optional[List[str]] = None,
         nowcast_timestep: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Return realtime weather and all forecasts.
 
-        If `hourly_fields` and `daily_fields` are not provided,
-        `forecast_or_nowcast_fields` will be used to get nowcast, hourly, and daily
-        data.
+        To get the same fields for all forecasts, use all_forecasts_fields. To get
+        specific fields for specific forecast types, use the corresponding fields list.
         """
         return await super().realtime_and_all_forecasts(
             realtime_fields=realtime_fields,
-            forecast_or_nowcast_fields=forecast_or_nowcast_fields,
+            all_forecasts_fields=all_forecasts_fields,
+            nowcast_fields=nowcast_fields,
             hourly_fields=hourly_fields,
             daily_fields=daily_fields,
             nowcast_timestep=nowcast_timestep,
