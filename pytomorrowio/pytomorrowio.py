@@ -375,14 +375,16 @@ class TomorrowioV4:
             and not daily_fields
         ):
             raise ValueError("At least one field list must be specified")
-        if all_forecasts_fields and (nowcast_fields or hourly_fields or daily_fields):
+        if all_forecasts_fields and any(
+            fields for fields in (nowcast_fields, hourly_fields, daily_fields)
+        ):
             raise ValueError(
                 "Either only all_forecasts_fields list must be specified or at least "
                 "one of the other field lists"
             )
 
         forecasts: Dict[str, List[Dict[str, Any]]] = {}
-        if all_forecasts_fields is not None:
+        if all_forecasts_fields:
             forecasts = await TomorrowioV4.all_forecasts(
                 self,
                 all_forecasts_fields,
@@ -395,7 +397,7 @@ class TomorrowioV4:
                 (hourly_fields, HOURLY, {}),
                 (daily_fields, DAILY, {}),
             ):
-                if fields is not None:
+                if fields:
                     forecasts[forecast_type] = await getattr(
                         TomorrowioV4, f"forecast_{forecast_type}"
                     )(self, fields, reset_num_api_requests=False, **kwargs)
