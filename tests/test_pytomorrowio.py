@@ -28,6 +28,7 @@ from pytomorrowio.exceptions import (
     UnknownException,
 )
 
+from .const import FIELDS_GREATER_THAN_MAX
 from .helpers import create_session, create_trace_config
 
 GPS_COORD = (28.4195, -81.5812)
@@ -223,6 +224,26 @@ async def test_timelines_realtime_good(aiohttp_client):
     assert isinstance(res, Mapping)
 
 
+async def test_timelines_realtime_greater_than_max_fields_good(aiohttp_client):
+    session = await create_session(
+        aiohttp_client,
+        [
+            "timelines_realtime_more_than_max_fields_1.json",
+            "timelines_realtime_more_than_max_fields_2.json",
+        ],
+    )
+    api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
+
+    res = await api.realtime(FIELDS_GREATER_THAN_MAX)
+
+    assert api.num_api_requests == 2
+
+    assert res is not None
+    assert isinstance(res, Mapping)
+
+    assert set(res) == set(FIELDS_GREATER_THAN_MAX)
+
+
 async def test_timelines_realtime_and_nowcast_good(aiohttp_client):
     session = await create_session(
         aiohttp_client,
@@ -310,17 +331,17 @@ async def test_errors(aiohttp_client):
     )
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     with pytest.raises(ClientResponseError):
-        await api.realtime([])
+        await api.realtime(["test"])
 
     session = await create_session(
         aiohttp_client, "empty_response.json", status=HTTPStatus.PERMANENT_REDIRECT
     )
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     with pytest.raises(UnknownException):
-        await api.realtime([])
+        await api.realtime(["test"])
 
     with pytest.raises(InvalidTimestep):
-        await api.forecast_nowcast([], timestep=99)
+        await api.forecast_nowcast(["test"], timestep=99)
 
     with pytest.raises(ValueError, match="Either"):
         await api.realtime_and_all_forecasts(
@@ -334,14 +355,14 @@ async def test_errors(aiohttp_client):
         "pytomorrowio.pytomorrowio.ClientSession.post",
         side_effect=ClientConnectionError,
     ), pytest.raises(CantConnectException):
-        await api.realtime([])
+        await api.realtime(["test"])
 
     session = await create_session(aiohttp_client, "empty_response.json")
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     with pytest.raises(UnknownException):
-        await api.realtime([])
+        await api.realtime(["test"])
 
     session = await create_session(aiohttp_client, "empty_response.json")
     api = TomorrowioV4("bogus_api_key", *GPS_COORD, session=session)
     with pytest.raises(UnknownException):
-        await api.forecast_nowcast([])
+        await api.forecast_nowcast(["test"])

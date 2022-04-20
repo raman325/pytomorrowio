@@ -1,0 +1,20 @@
+{
+    "data": {
+        "timelines": [
+            {
+                "timestep": "current",
+                "endTime": "2022-04-20T04:02:00Z",
+                "startTime": "2022-04-20T04:02:00Z",
+                "intervals": [
+                    {
+                        "startTime": "2022-04-20T04:02:00Z",
+                        "values": {
+                            "cloudBase": null,
+                            "cloudCeiling": null
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
