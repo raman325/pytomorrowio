@@ -1,4 +1,5 @@
 """Main module."""
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,7 @@ from .const import (
     FIVE_MINUTES,
     FORECASTS,
     HEADER_DAILY_API_LIMIT,
+    HEADER_REMAINING_CALLS_IN_SECOND,
     HEADERS,
     HOURLY,
     NOWCAST,
@@ -118,6 +120,7 @@ class TomorrowioV4:
         self._headers = {**HEADERS, "apikey": self._apikey}
         self._rate_limits: CIMultiDict = CIMultiDict()
         self._num_api_requests: int = 0
+        self._wait_for_next_call: bool = False
 
     @property
     def rate_limits(self) -> CIMultiDictProxy:
@@ -178,6 +181,9 @@ class TomorrowioV4:
     async def _make_call(
         self, params: Dict[str, Any], session: ClientSession
     ) -> Dict[str, Any]:
+        if self._wait_for_next_call:
+            self._wait_for_next_call = False
+            await asyncio.sleep(1)
         try:
             resp = await session.post(
                 self._get_url(),
@@ -191,6 +197,9 @@ class TomorrowioV4:
         self._rate_limits = CIMultiDict(
             {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
         )
+
+        if self._rate_limits[HEADER_REMAINING_CALLS_IN_SECOND] == 0:
+            self._wait_for_next_call = True
 
         if resp.status == HTTPStatus.OK:
             self._num_api_requests += 1
