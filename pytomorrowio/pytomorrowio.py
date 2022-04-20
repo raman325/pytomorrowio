@@ -223,7 +223,7 @@ class TomorrowioV4:
         except (IndexError, KeyError) as error:
             raise UnknownException(data) from error
 
-    async def _forecast(
+    async def forecast(
         self,
         timesteps: List[timedelta],
         fields: List[str],
@@ -272,7 +272,7 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> List[Dict[str, Any]]:
         """Return forecast data from Tomorrow.io's NowCast API for a given time period."""
-        forecasts = await self._forecast(
+        forecasts = await self.forecast(
             [timedelta(minutes=timestep)],
             fields,
             start_time=start_time,
@@ -289,7 +289,7 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> List[Dict[str, Any]]:
         """Return daily forecast data from Tomorrow.io's API for a given time period."""
-        forecasts = await self._forecast(
+        forecasts = await self.forecast(
             [ONE_DAY],
             fields,
             start_time=start_time,
@@ -306,7 +306,7 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> List[Dict[str, Any]]:
         """Return hourly forecast data from Tomorrow.io's API for a given time period."""
-        forecasts = await self._forecast(
+        forecasts = await self.forecast(
             [ONE_HOUR],
             fields,
             start_time=start_time,
@@ -324,7 +324,7 @@ class TomorrowioV4:
         reset_num_api_requests: bool = True,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Return all forecasts."""
-        return await self._forecast(
+        return await self.forecast(
             [
                 timedelta(minutes=nowcast_timestep),
                 ONE_HOUR,
