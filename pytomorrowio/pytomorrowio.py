@@ -1,5 +1,4 @@
 """Main module."""
-import asyncio
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -401,7 +400,6 @@ class TomorrowioV4:
                         )
                     )
 
-        await asyncio.sleep(1)
         current = await self.realtime(realtime_fields, reset_num_api_requests=False)
         return {CURRENT: current, FORECASTS: forecasts}
 
