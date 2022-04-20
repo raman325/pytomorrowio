@@ -266,11 +266,9 @@ class TomorrowioV4:
                     forecast_type = _timestep_to_key(timeline["timestep"])
                     if forecast_type not in forecasts:
                         forecasts[forecast_type] = timeline["intervals"]
-                    else:
-                        for idx, forecast in enumerate(forecasts[forecast_type]):
-                            forecast["values"].update(
-                                timeline["intervals"][idx]["values"]
-                            )
+                        continue
+                    for idx, forecast in enumerate(forecasts[forecast_type]):
+                        forecast["values"].update(timeline["intervals"][idx]["values"])
             except LookupError as error:
                 raise UnknownException(data) from error
         return forecasts
