@@ -11,6 +11,7 @@ from aiohttp import ClientConnectionError, ClientResponseError, ClientSession
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.const import (
     FIVE_MINUTES,
+    MAX_FIELDS_PER_REQUEST,
     ONE_DAY,
     ONE_HOUR,
     ONE_MINUTE,
@@ -242,6 +243,7 @@ async def test_timelines_realtime_greater_than_max_fields_good(aiohttp_client):
     assert isinstance(res, Mapping)
 
     assert set(res) == set(FIELDS_GREATER_THAN_MAX)
+    assert len(res) > MAX_FIELDS_PER_REQUEST
 
 
 async def test_timelines_realtime_and_nowcast_good(aiohttp_client):
