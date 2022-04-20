@@ -19,11 +19,13 @@ from .const import (
     HEADER_DAILY_API_LIMIT,
     HEADERS,
     HOURLY,
+    MAX_FIELDS_PER_REQUEST,
     NOWCAST,
     ONE_DAY,
     ONE_HOUR,
     ONE_MINUTE,
     THIRTY_MINUTES,
+    TIMESTEP_CURRENT,
     TIMESTEP_DAILY,
     TIMESTEP_HOURLY,
     VALID_TIMESTEPS,
@@ -213,16 +215,20 @@ class TomorrowioV4:
         if reset_num_api_requests:
             self._num_api_requests = 0
 
-        data = await self._call_api(
-            {
-                "timesteps": ["current"],
-                "fields": fields,
-            }
-        )
-        try:
-            return data["data"]["timelines"][0]["intervals"][0]["values"]
-        except LookupError as error:
-            raise UnknownException(data) from error
+        ret_data = {}
+        for i in range(0, len(fields), MAX_FIELDS_PER_REQUEST):
+            data = await self._call_api(
+                {
+                    "timesteps": [TIMESTEP_CURRENT],
+                    "fields": fields[i : i + MAX_FIELDS_PER_REQUEST],
+                }
+            )
+            try:
+                ret_data.update(data["data"]["timelines"][0]["intervals"][0]["values"])
+            except LookupError as error:
+                raise UnknownException(data) from error
+
+        return ret_data
 
     async def forecast(
         self,
@@ -238,7 +244,6 @@ class TomorrowioV4:
             self._num_api_requests = 0
 
         params: Dict[str, Any] = {
-            "fields": fields,
             "timesteps": [_timedelta_to_str(timestep) for timestep in timesteps],
             **kwargs,
         }
@@ -249,19 +254,30 @@ class TomorrowioV4:
         else:
             start_time = datetime.now(tz=timezone.utc)
         params["startTime"] = start_time.replace(microsecond=0).isoformat()
+
         if duration:
-            end_time = (start_time + duration).replace(microsecond=0)
-            params["endTime"] = end_time.isoformat()
+            params["endTime"] = (
+                (start_time + duration).replace(microsecond=0).isoformat()
+            )
 
         forecasts: Dict[str, List[Dict[str, Any]]] = {}
-        data = await self._call_api(params)
-        try:
-            for timeline in data["data"]["timelines"]:
-                forecasts[_timestep_to_key(timeline["timestep"])] = timeline[
-                    "intervals"
-                ]
-        except KeyError as error:
-            raise UnknownException(data) from error
+        for i in range(0, len(fields), MAX_FIELDS_PER_REQUEST):
+            data = await self._call_api(
+                {**params, "fields": fields[i : i + MAX_FIELDS_PER_REQUEST]}
+            )
+            try:
+                for timeline in data["data"]["timelines"]:
+                    forecast_type = _timestep_to_key(timeline["timestep"])
+                    if forecast_type not in forecasts:
+                        forecasts[forecast_type] = timeline["intervals"]
+                        continue
+                    for idx in range(0, len(forecasts[forecast_type])):
+                        forecasts[forecast_type][idx]["values"].update(
+                            timeline["intervals"][idx]["values"]
+                        )
+            except LookupError as error:
+                raise UnknownException(data) from error
+
         return forecasts
 
     async def forecast_nowcast(
@@ -357,7 +373,9 @@ class TomorrowioV4:
             all_forecasts_fields or nowcast_fields or hourly_fields or daily_fields
         ):
             raise ValueError("At least one field list must be specified")
-        if all_forecasts_fields and (nowcast_fields or hourly_fields or daily_fields):
+        if all_forecasts_fields and any(
+            fields for fields in (nowcast_fields, hourly_fields, daily_fields)
+        ):
             raise ValueError(
                 "Either only all_forecasts_fields list must be specified or at least "
                 "one of the other field lists"
@@ -377,8 +395,6 @@ class TomorrowioV4:
                 (daily_fields, ONE_DAY),
             ]:
                 if fields:
-                    if forecasts:
-                        await asyncio.sleep(1)
                     forecasts.update(
                         await self.forecast(
                             [timestep], fields, reset_num_api_requests=False
