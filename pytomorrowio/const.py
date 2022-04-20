@@ -4,13 +4,18 @@ from enum import IntEnum
 
 HEADERS = {"content-type": "application/json"}
 
+MAX_FIELDS_PER_REQUEST = 55
+
 HEADER_DAILY_API_LIMIT = "X-RateLimit-Limit-Day"
 
 DAILY = "daily"
 HOURLY = "hourly"
 NOWCAST = "nowcast"
+
+CURRENT = "current"
 FORECASTS = "forecasts"
 
+TIMESTEP_CURRENT = "current"
 TIMESTEP_HOURLY = "1h"
 TIMESTEP_DAILY = "1d"
 
@@ -23,7 +28,6 @@ TYPE_PRECIPITATION = "precipitation"
 
 # V4 constants
 BASE_URL_V4 = "https://api.tomorrow.io/v4/timelines"
-CURRENT = "current"
 
 ONE_DAY = timedelta(days=1)
 ONE_HOUR = timedelta(hours=1)

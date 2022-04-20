@@ -1,0 +1,73 @@
+{
+    "data": {
+        "timelines": [
+            {
+                "timestep": "current",
+                "endTime": "2022-04-20T04:01:00Z",
+                "startTime": "2022-04-20T04:01:00Z",
+                "intervals": [
+                    {
+                        "startTime": "2022-04-20T04:01:00Z",
+                        "values": {
+                            "cloudCover": 7,
+                            "dewPoint": 0.81,
+                            "epaHealthConcern": 1,
+                            "epaIndex": 65,
+                            "epaPrimaryPollutant": 0,
+                            "fireIndex": 9,
+                            "grassGrassIndex": 1,
+                            "grassIndex": 1,
+                            "humidity": 67,
+                            "mepHealthConcern": 2,
+                            "mepIndex": 104,
+                            "mepPrimaryPollutant": 4,
+                            "particulateMatter10": 21.88,
+                            "particulateMatter25": 18.88,
+                            "pollutantCO": 12.19,
+                            "pollutantNO2": 18,
+                            "pollutantO3": 55.81,
+                            "pollutantSO2": 13,
+                            "precipitationType": 0,
+                            "pressureSeaLevel": 1022.38,
+                            "pressureSurfaceLevel": 1018.73,
+                            "solarGHI": 0,
+                            "temperature": 6.13,
+                            "temperatureApparent": 6.13,
+                            "treeAcaciaIndex": 0,
+                            "treeAshIndex": 2,
+                            "treeBeechIndex": 1,
+                            "treeBirchIndex": 1,
+                            "treeCedarIndex": 0,
+                            "treeCottonwoodIndex": 2,
+                            "treeCypressIndex": 0,
+                            "treeElderIndex": 1,
+                            "treeElmIndex": 1,
+                            "treeHemlockIndex": 1,
+                            "treeHickoryIndex": 1,
+                            "treeIndex": 5,
+                            "treeJuniperIndex": 0,
+                            "treeMahoganyIndex": 0,
+                            "treeMapleIndex": 3,
+                            "treeMulberryIndex": 0,
+                            "treeOakIndex": 5,
+                            "treePineIndex": 1,
+                            "treeSpruceIndex": 0,
+                            "treeSycamoreIndex": 1,
+                            "treeWalnutIndex": 1,
+                            "treeWillowIndex": 0,
+                            "uvHealthConcern": 0,
+                            "uvIndex": 0,
+                            "visibility": 16,
+                            "weatherCode": 1000,
+                            "weedIndex": 0,
+                            "weedRagweedIndex": 0,
+                            "windDirection": 310.63,
+                            "windGust": 8.63,
+                            "windSpeed": 3
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
