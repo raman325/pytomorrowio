@@ -388,7 +388,12 @@ class TomorrowioV4:
             )
         else:
             for fields, forecast_type, method, kwargs in (
-                (nowcast_fields, NOWCAST, TomorrowioV4.forecast_nowcast, {"timestep": nowcast_timestep}),
+                (
+                    nowcast_fields,
+                    NOWCAST,
+                    TomorrowioV4.forecast_nowcast,
+                    {"timestep": nowcast_timestep},
+                ),
                 (hourly_fields, HOURLY, TomorrowioV4.forecast_hourly, {}),
                 (daily_fields, DAILY, TomorrowioV4.forecast_daily, {}),
             ):
