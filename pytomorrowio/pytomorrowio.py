@@ -364,7 +364,7 @@ class TomorrowioV4:
             )
 
         forecasts: Dict[str, List[Dict[str, Any]]] = {}
-        if all_forecasts_fields is not None:
+        if all_forecasts_fields:
             forecasts = await self.all_forecasts(
                 all_forecasts_fields,
                 nowcast_timestep=nowcast_timestep,
