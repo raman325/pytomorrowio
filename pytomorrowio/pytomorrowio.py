@@ -220,7 +220,7 @@ class TomorrowioV4:
         )
         try:
             return data["data"]["timelines"][0]["intervals"][0]["values"]
-        except (IndexError, KeyError) as error:
+        except LookupError as error:
             raise UnknownException(data) from error
 
     async def forecast(
