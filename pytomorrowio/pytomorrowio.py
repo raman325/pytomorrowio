@@ -379,8 +379,10 @@ class TomorrowioV4:
                 if fields:
                     if forecasts:
                         await asyncio.sleep(1)
-                    forecasts |= await self.forecast(
-                        [timestep], fields, reset_num_api_requests=False
+                    forecasts.update(
+                        await self.forecast(
+                            [timestep], fields, reset_num_api_requests=False
+                        )
                     )
 
         await asyncio.sleep(1)
