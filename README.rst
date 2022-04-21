@@ -24,10 +24,13 @@ Example Code
 -------------
 .. code-block:: python
 
+  from datetime import timedelta
   from pytomorrowio import TomorrowioV4Sync
-  api = TomorrowioV4Sync("MY_API_KEY", latitude, longitude)
+
+  gps_coord = (28.4195, -81.5812)
+  api = TomorrowioV4Sync("MY_API_KEY", *gps_coord)
   print(api.realtime(api.available_fields(timedelta(0))))
-  print(api.forecast_nowcast(api.available_fields(timedelta(minutes=5))), start_time, timedelta_duration, timestep))
+  print(api.forecast_nowcast(api.available_fields(timedelta(minutes=5))))
 
 Features
 --------
