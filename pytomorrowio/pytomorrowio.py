@@ -129,9 +129,22 @@ class TomorrowioV4:
         return CIMultiDictProxy(self._rate_limits)  # make read-only
 
     @property
-    def max_requests_per_day(self) -> Optional[int]:
-        """Return the maximum number of requests per day."""
-        return self.rate_limits.get(HEADER_DAILY_API_LIMIT)
+    def max_requests_per_day(self) -> int:
+        """
+        Return the maximum number of requests per day.
+
+        Defaults to 100 as a safe fallback.
+        """
+        return self.rate_limits.get(HEADER_DAILY_API_LIMIT, 100)
+
+    @property
+    def _remaining_requests_in_second(self) -> int:
+        """
+        Return the max remaining requests that can be made in the current seconed.
+
+        Defaults to 1 so the first call can be made.
+        """
+        return self.rate_limits.get(HEADER_REMAINING_CALLS_IN_SECOND, 1)
 
     @property
     def num_api_requests(self) -> int:
@@ -182,14 +195,8 @@ class TomorrowioV4:
     async def _make_call(
         self, params: Dict[str, Any], session: ClientSession
     ) -> Dict[str, Any]:
-        try:
-            if (
-                self._rate_limits
-                and self._rate_limits[HEADER_REMAINING_CALLS_IN_SECOND] == 0
-            ):
-                await asyncio.sleep(1)
-        except LookupError as error:
-            raise UnknownException("Missing Header") from error
+        if self._remaining_requests_in_second == 0:
+            await asyncio.sleep(1)
 
         try:
             resp = await session.post(

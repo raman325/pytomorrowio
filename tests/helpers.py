@@ -23,11 +23,6 @@ async def create_session(
     status: HTTPStatus = HTTPStatus.OK,
 ):
     """Create aiohttp session that returns results from a file"""
-    if not headers:
-        headers = {}
-    if "X-RateLimit-Remaining-Second" not in headers:
-        headers["X-RateLimit-Remaining-Second"] = "1"
-
     ns = SimpleNamespace(
         file_names=[file_name] if isinstance(file_name, str) else file_name,
         index=0,
