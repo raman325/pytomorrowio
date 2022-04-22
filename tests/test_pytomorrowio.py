@@ -61,7 +61,7 @@ async def test_raises_malformed_request(aiohttp_client):
         ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
 
-    assert api.max_requests_per_day is None
+    assert api.max_requests_per_day == 100
     assert api.num_api_requests == 0
 
     with pytest.raises(MalformedRequestException):
@@ -78,7 +78,7 @@ async def test_raises_invalid_api_key(aiohttp_client):
         ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
 
-    assert api.max_requests_per_day is None
+    assert api.max_requests_per_day == 100
     assert api.num_api_requests == 0
 
     with pytest.raises(InvalidAPIKeyException):
@@ -110,7 +110,7 @@ async def test_raises_rate_limited(aiohttp_client):
         ONE_HOUR, [TYPE_POLLEN, TYPE_PRECIPITATION, TYPE_WEATHER]
     )
 
-    assert api.max_requests_per_day is None
+    assert api.max_requests_per_day == 100
     assert api.num_api_requests == 0
 
     with pytest.raises(RateLimitedException):
