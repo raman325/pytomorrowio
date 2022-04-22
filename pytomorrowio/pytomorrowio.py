@@ -112,14 +112,14 @@ class TomorrowioV4:
         if unit_system.lower() not in ("metric", "imperial"):
             raise ValueError("`unit_system` must be `metric` or `imperial`")
 
-        self._apikey = apikey
+        self.api_key = apikey
         self.unit_system = unit_system.lower()
         self._session = session
         self._params = {
             "location": f"{float(latitude)},{float(longitude)}",
             "units": self.unit_system,
         }
-        self._headers = {**HEADERS, "apikey": self._apikey}
+        self._headers = {**HEADERS, "apikey": self.api_key}
         self._rate_limits: CIMultiDict = CIMultiDict()
         self._num_api_requests: int = 0
 
