@@ -231,11 +231,17 @@ class TomorrowioV4:
         raise UnknownException(resp_json, resp.headers)
 
     async def realtime(
-        self, fields: List[str], reset_num_api_requests: bool = True
+        self,
+        fields: List[str],
+        reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
         if reset_num_api_requests:
             self._num_api_requests = 0
+
+        if not additional_params:
+            additional_params = {}
 
         ret_data = {}
         for i in range(0, len(fields), MAX_FIELDS_PER_REQUEST):
@@ -243,6 +249,7 @@ class TomorrowioV4:
                 {
                     "timesteps": [TIMESTEP_CURRENT],
                     "fields": fields[i : i + MAX_FIELDS_PER_REQUEST],
+                    **additional_params,
                 }
             )
             try:
@@ -259,7 +266,7 @@ class TomorrowioV4:
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         reset_num_api_requests: bool = True,
-        **kwargs,
+        **additional_params,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Return forecast data from Tomorrow.io's API for a given time period."""
         if reset_num_api_requests:
@@ -267,7 +274,7 @@ class TomorrowioV4:
 
         params: Dict[str, Any] = {
             "timesteps": [_timedelta_to_str(timestep) for timestep in timesteps],
-            **kwargs,
+            **additional_params,
         }
 
         if start_time:
@@ -309,6 +316,7 @@ class TomorrowioV4:
         duration: Optional[timedelta] = None,
         timestep: int = 5,
         reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> List[Dict[str, Any]]:
         """Return forecast data from Tomorrow.io's NowCast API for a given time period."""
         forecasts = await TomorrowioV4.forecast(
@@ -318,6 +326,7 @@ class TomorrowioV4:
             start_time=start_time,
             duration=duration,
             reset_num_api_requests=reset_num_api_requests,
+            **additional_params,
         )
         return forecasts[NOWCAST]
 
@@ -327,6 +336,7 @@ class TomorrowioV4:
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> List[Dict[str, Any]]:
         """Return daily forecast data from Tomorrow.io's API for a given time period."""
         forecasts = await TomorrowioV4.forecast(
@@ -336,6 +346,7 @@ class TomorrowioV4:
             start_time=start_time,
             duration=duration,
             reset_num_api_requests=reset_num_api_requests,
+            **additional_params,
         )
         return forecasts[DAILY]
 
@@ -345,6 +356,7 @@ class TomorrowioV4:
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> List[Dict[str, Any]]:
         """Return hourly forecast data from Tomorrow.io's API for a given time period."""
         forecasts = await TomorrowioV4.forecast(
@@ -354,6 +366,7 @@ class TomorrowioV4:
             start_time=start_time,
             duration=duration,
             reset_num_api_requests=reset_num_api_requests,
+            **additional_params,
         )
         return forecasts[HOURLY]
 
@@ -364,6 +377,7 @@ class TomorrowioV4:
         duration: Optional[timedelta] = None,
         nowcast_timestep: int = 5,
         reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Return all forecasts."""
         return await TomorrowioV4.forecast(
@@ -377,6 +391,7 @@ class TomorrowioV4:
             start_time=start_time,
             duration=duration,
             reset_num_api_requests=reset_num_api_requests,
+            **additional_params,
         )
 
     async def realtime_and_all_forecasts(
@@ -387,12 +402,16 @@ class TomorrowioV4:
         hourly_fields: Optional[List[str]] = None,
         daily_fields: Optional[List[str]] = None,
         nowcast_timestep: int = 5,
+        **additional_params,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Return realtime weather and all forecasts.
 
         To get the same fields for all forecasts, use all_forecasts_fields. To get
         specific fields for specific forecast types, use the corresponding fields list.
+
+        additional keyword arguments will be added as additional parameters, overriding
+        existing parameters when applicable.
         """
         self._num_api_requests = 0
         if not (
@@ -414,6 +433,7 @@ class TomorrowioV4:
                 all_forecasts_fields,
                 nowcast_timestep=nowcast_timestep,
                 reset_num_api_requests=False,
+                **additional_params,
             )
         else:
             for fields, timestep in [
@@ -424,12 +444,16 @@ class TomorrowioV4:
                 if fields:
                     forecasts.update(
                         await TomorrowioV4.forecast(
-                            self, [timestep], fields, reset_num_api_requests=False
+                            self,
+                            [timestep],
+                            fields,
+                            reset_num_api_requests=False,
+                            **additional_params,
                         )
                     )
 
         current = await TomorrowioV4.realtime(
-            self, realtime_fields, reset_num_api_requests=False
+            self, realtime_fields, reset_num_api_requests=False, **additional_params
         )
         return {CURRENT: current, FORECASTS: forecasts}
 
@@ -449,11 +473,14 @@ class TomorrowioV4Sync(TomorrowioV4):
 
     @async_to_sync
     async def realtime(
-        self, fields: List[str], reset_num_api_requests: bool = True
+        self,
+        fields: List[str],
+        reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> Dict[str, Any]:
         """Return realtime weather conditions from Tomorrow.io API."""
         return await super().realtime(
-            fields, reset_num_api_requests=reset_num_api_requests
+            fields, reset_num_api_requests=reset_num_api_requests, **additional_params
         )
 
     @async_to_sync
@@ -464,7 +491,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         reset_num_api_requests: bool = True,
-        **kwargs,
+        **additional_params,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Return forecast data from Tomorrow.io's API for a given time period."""
         return await super().forecast(
@@ -473,7 +500,7 @@ class TomorrowioV4Sync(TomorrowioV4):
             start_time=start_time,
             duration=duration,
             reset_num_api_requests=reset_num_api_requests,
-            **kwargs,
+            **additional_params,
         )
 
     @async_to_sync
@@ -484,6 +511,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         duration: Optional[timedelta] = None,
         timestep: int = 5,
         reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> List[Dict[str, Any]]:
         """Return forecast data from Tomorrow.io's NowCast API for a given time period."""
         return await super().forecast_nowcast(
@@ -492,6 +520,7 @@ class TomorrowioV4Sync(TomorrowioV4):
             duration=duration,
             timestep=timestep,
             reset_num_api_requests=reset_num_api_requests,
+            **additional_params,
         )
 
     @async_to_sync
@@ -501,6 +530,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> List[Dict[str, Any]]:
         """Return daily forecast data from Tomorrow.io's API for a given time period."""
         return await super().forecast_daily(
@@ -508,6 +538,7 @@ class TomorrowioV4Sync(TomorrowioV4):
             start_time=start_time,
             duration=duration,
             reset_num_api_requests=reset_num_api_requests,
+            **additional_params,
         )
 
     @async_to_sync
@@ -517,6 +548,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         start_time: Optional[datetime] = None,
         duration: Optional[timedelta] = None,
         reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> List[Dict[str, Any]]:
         """Return hourly forecast data from Tomorrow.io's API for a given time period."""
         return await super().forecast_hourly(
@@ -524,6 +556,7 @@ class TomorrowioV4Sync(TomorrowioV4):
             start_time=start_time,
             duration=duration,
             reset_num_api_requests=reset_num_api_requests,
+            **additional_params,
         )
 
     @async_to_sync
@@ -534,6 +567,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         duration: Optional[timedelta] = None,
         nowcast_timestep: int = 5,
         reset_num_api_requests: bool = True,
+        **additional_params,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Return all forecasts."""
         return await super().all_forecasts(
@@ -542,6 +576,7 @@ class TomorrowioV4Sync(TomorrowioV4):
             duration=duration,
             nowcast_timestep=nowcast_timestep,
             reset_num_api_requests=reset_num_api_requests,
+            **additional_params,
         )
 
     @async_to_sync
@@ -553,6 +588,7 @@ class TomorrowioV4Sync(TomorrowioV4):
         hourly_fields: Optional[List[str]] = None,
         daily_fields: Optional[List[str]] = None,
         nowcast_timestep: int = 5,
+        **additional_params,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Return realtime weather and all forecasts.
@@ -567,4 +603,5 @@ class TomorrowioV4Sync(TomorrowioV4):
             hourly_fields=hourly_fields,
             daily_fields=daily_fields,
             nowcast_timestep=nowcast_timestep,
+            **additional_params,
         )
