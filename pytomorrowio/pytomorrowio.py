@@ -207,8 +207,11 @@ class TomorrowioV4:
 
         if resp.status == HTTPStatus.OK:
             self._num_api_requests += 1
+            # ignore "range for timestep not valid warning"
             for warning in set(
-                warning["message"] for warning in resp_json.get("warnings", [])
+                warning["message"]
+                for warning in resp_json.get("warnings", [])
+                if warning["code"] != 246009
             ):
                 _LOGGER.warning(
                     (
