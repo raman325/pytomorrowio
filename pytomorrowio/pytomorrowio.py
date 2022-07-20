@@ -212,7 +212,7 @@ class TomorrowioV4:
             {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
         )
 
-        if resp.status == HTTPStatus.OK:
+        if resp.status in (HTTPStatus.OK, HTTPStatus.PARTIAL_CONTENT):
             self._num_api_requests += 1
             for warning in set(
                 warning["message"] for warning in resp_json.get("warnings", [])
