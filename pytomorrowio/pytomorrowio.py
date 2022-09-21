@@ -119,7 +119,7 @@ class TomorrowioV4:
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self.api_key}
-        self._rate_limits = CIMultiDict()
+        self._rate_limits: CIMultiDict = CIMultiDict()
         self._num_api_requests: int = 0
 
     @property
