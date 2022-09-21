@@ -218,7 +218,7 @@ class TomorrowioV4:
             raise CantConnectException() from error
 
         self._rate_limits = CIMultiDict(
-            {k: int(v) for k, v in resp.headers.items() if "limit" in k.lower()}
+            {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
         )
 
         if resp.status in (HTTPStatus.OK, HTTPStatus.PARTIAL_CONTENT):

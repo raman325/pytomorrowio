@@ -6,8 +6,8 @@ HEADERS = {"content-type": "application/json"}
 
 MAX_FIELDS_PER_REQUEST = 55
 
-HEADER_DAILY_API_LIMIT = "X-RateLimit-Limit-day"
-HEADER_REMAINING_CALLS_IN_SECOND = "X-RateLimit-Remaining-second"
+HEADER_DAILY_API_LIMIT = "X-RateLimit-Limit-Day"
+HEADER_REMAINING_CALLS_IN_SECOND = "X-RateLimit-Remaining-Second"
 
 DAILY = "daily"
 HOURLY = "hourly"
