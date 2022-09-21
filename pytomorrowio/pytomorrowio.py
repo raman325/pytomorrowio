@@ -1,6 +1,5 @@
 """Main module."""
 import asyncio
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
@@ -120,7 +119,7 @@ class TomorrowioV4:
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self.api_key}
-        self._rate_limits: CIMultiDict = CIMultiDict()
+        self._rate_limits = CIMultiDict()
         self._num_api_requests: int = 0
 
     @property
@@ -150,6 +149,12 @@ class TomorrowioV4:
     def num_api_requests(self) -> int:
         """The number of API requests made during the most recent call."""
         return self._num_api_requests
+
+    @property
+    def api_key_masked(self) -> str:
+        """Return the API key with the first 3/4 masked."""
+        mask_len = len(self.api_key) * 3 // 4
+        return f"{'*' * mask_len}{self.api_key[mask_len:]}"
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -182,19 +187,22 @@ class TomorrowioV4:
 
     @staticmethod
     def _get_url() -> str:
+        """Return base URL for API requests."""
         # This method is required for test mocks
         return BASE_URL_V4
 
     async def _call_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Call tomorrow.io API."""
         if self._session:
-            return await self._make_call(params, self._session)
+            return await self.__call_api(params, self._session)
 
         async with ClientSession() as session:
-            return await self._make_call(params, session)
+            return await self.__call_api(params, session)
 
-    async def _make_call(
+    async def __call_api(
         self, params: Dict[str, Any], session: ClientSession
     ) -> Dict[str, Any]:
+        """Make API call with session."""
         if self._remaining_requests_in_second == 0:
             await asyncio.sleep(1)
 
@@ -202,14 +210,15 @@ class TomorrowioV4:
             resp = await session.post(
                 self._get_url(),
                 headers=self._headers,
-                data=json.dumps({**self._params, **params}),
+                json={**self._params, **params},
+                compress=False,
             )
-            resp_json = await resp.json()
+            resp_json = await resp.json(content_type=None)
         except ClientConnectionError as error:
             raise CantConnectException() from error
 
         self._rate_limits = CIMultiDict(
-            {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
+            {k: int(v) for k, v in resp.headers.items() if "limit" in k.lower()}
         )
 
         if resp.status in (HTTPStatus.OK, HTTPStatus.PARTIAL_CONTENT):
