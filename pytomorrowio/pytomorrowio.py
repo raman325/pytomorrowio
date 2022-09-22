@@ -165,20 +165,6 @@ class TomorrowioV4:
         return self._num_api_requests
 
     @property
-    def location_masked(self) -> str:
-        """
-        Return the location with the latitude and longitude masked.
-
-        Doesn't count negative character in masking.
-        """
-        return ",".join(
-            [
-                f"-{mask(-part)}" if part < 0 else mask(part)
-                for part in (self._lat, self._long)
-            ]
-        )
-
-    @property
     def api_key_masked(self) -> str:
         """Return the API key with the first 3/4 masked."""
         return mask(self.api_key)
@@ -235,11 +221,16 @@ class TomorrowioV4:
 
         payload = {**self._params, **params}
 
-        _LOGGER.debug(
-            "Sending the following payload to tomorrow.io: %s",
+        masked_payload = (
             payload
             if "location" not in payload
-            else {**payload, "location": self.location_masked},
+            else {
+                **payload,
+                "location": mask(payload["location"]),
+            }
+        )
+        _LOGGER.debug(
+            "Sending the following payload to tomorrow.io: %s", masked_payload
         )
 
         try:
