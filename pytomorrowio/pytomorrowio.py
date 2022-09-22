@@ -126,10 +126,8 @@ class TomorrowioV4:
         self.api_key = apikey
         self.unit_system = unit_system.lower()
         self._session = session
-        self._lat = float(latitude)
-        self._long = float(longitude)
         self._params = {
-            "location": f"{self._lat},{self._long}",
+            "location": f"{float(latitude)},{float(longitude)}",
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self.api_key}
