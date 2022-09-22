@@ -219,16 +219,12 @@ class TomorrowioV4:
 
         payload = {**self._params, **params}
 
-        masked_payload = (
-            payload
-            if "location" not in payload
-            else {
+        _LOGGER.debug(
+            "Sending the following payload to tomorrow.io: %s",
+            {
                 **payload,
                 "location": mask(payload["location"]),
-            }
-        )
-        _LOGGER.debug(
-            "Sending the following payload to tomorrow.io: %s", masked_payload
+            },
         )
 
         try:
