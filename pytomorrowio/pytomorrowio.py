@@ -102,7 +102,7 @@ def mask(data: Union[str, float]) -> str:
     text_len = len(text)
     mask_len = text_len * 3 // 4
     unmask_len = text_len - mask_len
-    prefix = text[0:(unmask_len // 2)]
+    prefix = text[0 : (unmask_len // 2)]
     suffix_len = len(prefix) + (1 if unmask_len % 2 else 0)
     suffix = text[-(suffix_len):]
     return f"{prefix}{'*' * mask_len}{suffix}"
