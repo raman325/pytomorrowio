@@ -102,9 +102,10 @@ def mask(data: Union[str, float]) -> str:
     text_len = len(text)
     mask_len = text_len * 3 // 4
     unmask_len = text_len - mask_len
-    prefix_len = unmask_len // 2
-    suffix_len = prefix_len + (1 if unmask_len % 2 else 0)
-    return f"{text[0:prefix_len]}{'*' * mask_len}{text[-(suffix_len):]}"
+    prefix = text[0:(unmask_len // 2)]
+    suffix_len = len(prefix) + (1 if unmask_len % 2 else 0)
+    suffix = text[-(suffix_len):]
+    return f"{prefix}{'*' * mask_len}{suffix}"
 
 
 class TomorrowioV4:
