@@ -96,6 +96,16 @@ def _timestep_to_key(timestep: str) -> str:
     return NOWCAST
 
 
+def mask(text: Union[str, float]) -> str:
+    """Mask 3/4 of a string."""
+    text_len = len(str(text))
+    mask_len = text_len * 3 // 4
+    unmask_len = text_len - mask_len
+    prefix_len = unmask_len // 2
+    suffix_len = prefix_len + (1 if unmask_len % 2 else 0)
+    return f"{text[0:prefix_len]}{'*' * mask_len}{text[-(suffix_len):]}"
+
+
 class TomorrowioV4:
     """Async class to query the Tomorrow.io v4 API."""
 
@@ -114,8 +124,10 @@ class TomorrowioV4:
         self.api_key = apikey
         self.unit_system = unit_system.lower()
         self._session = session
+        self._lat = float(latitude)
+        self._long = float(longitude)
         self._params = {
-            "location": f"{float(latitude)},{float(longitude)}",
+            "location": f"{self._lat},{self._long}",
             "units": self.unit_system,
         }
         self._headers = {**HEADERS, "apikey": self.api_key}
@@ -151,10 +163,23 @@ class TomorrowioV4:
         return self._num_api_requests
 
     @property
+    def location_masked(self) -> str:
+        """
+        Return the location with the latitude and longitude masked.
+
+        Doesn't count negative character in masking.
+        """
+        return ",".join(
+            [
+                f"-{mask(-part)}" if part < 0 else mask(part)
+                for part in (self._lat, self._long)
+            ]
+        )
+
+    @property
     def api_key_masked(self) -> str:
         """Return the API key with the first 3/4 masked."""
-        mask_len = len(self.api_key) * 3 // 4
-        return f"{'*' * mask_len}{self.api_key[mask_len:]}"
+        return mask(self.api_key)
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -191,6 +216,19 @@ class TomorrowioV4:
         # This method is required for test mocks
         return BASE_URL_V4
 
+    def _strip_sensitive_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Strip sensitive data from a dict."""
+        masked_payload = data.copy()
+
+        for key, masked_val in (
+            ("apikey", self.api_key_masked),
+            ("location", self.location_masked),
+        ):
+            if masked_val in masked_payload:
+                masked_payload[key] = masked_val
+
+        return masked_payload
+
     async def _call_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Call tomorrow.io API."""
         if self._session:
@@ -206,16 +244,31 @@ class TomorrowioV4:
         if self._remaining_requests_in_second == 0:
             await asyncio.sleep(1)
 
+        payload = {**self._params, **params}
+
+        _LOGGER.debug(
+            "Sending the following payload to tomorrow.io: %s",
+            payload
+            if "location" not in payload
+            else {**payload, "location": self.location_masked},
+        )
+
         try:
             resp = await session.post(
                 self._get_url(),
                 headers=self._headers,
-                json={**self._params, **params},
+                json=payload,
                 compress=False,
             )
             resp_json = await resp.json(content_type=None)
         except ClientConnectionError as error:
             raise CantConnectException() from error
+
+        _LOGGER.debug(
+            "Received a response with status code %s and headers %s",
+            resp.status,
+            resp.headers,
+        )
 
         self._rate_limits = CIMultiDict(
             {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}

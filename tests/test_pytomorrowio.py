@@ -112,7 +112,8 @@ async def test_raises_rate_limited(aiohttp_client):
 
     assert api.max_requests_per_day == 100
     assert api.num_api_requests == 0
-    assert api.api_key_masked == "*********_key"
+    assert api.api_key_masked == "bo*********ey"
+    assert api.location_masked == "2*****5,-8*****2"
 
     with pytest.raises(RateLimitedException):
         await api.forecast_hourly(available_fields)
