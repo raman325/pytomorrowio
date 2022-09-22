@@ -15,7 +15,7 @@ Python Tomorrow.io API
 
 
 
-Python3.7+ package to access the `Tomorrow.io Weather API <https://www.tomorrow.io/weather-api/>`_
+Python3.9+ package to access the `Tomorrow.io Weather API <https://www.tomorrow.io/weather-api/>`_
 
 Both an async module (``TomorrowioV4``) and a synchronous module
 (``TomorrowioV4Sync``) are provided.
