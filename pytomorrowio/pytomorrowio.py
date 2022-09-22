@@ -96,9 +96,10 @@ def _timestep_to_key(timestep: str) -> str:
     return NOWCAST
 
 
-def mask(text: Union[str, float]) -> str:
+def mask(data: Union[str, float]) -> str:
     """Mask 3/4 of a string."""
-    text_len = len(str(text))
+    text = str(data)
+    text_len = len(text)
     mask_len = text_len * 3 // 4
     unmask_len = text_len - mask_len
     prefix_len = unmask_len // 2
