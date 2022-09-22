@@ -96,16 +96,15 @@ def _timestep_to_key(timestep: str) -> str:
     return NOWCAST
 
 
-def mask(data: Union[str, float]) -> str:
+def mask(text: str) -> str:
     """Mask 3/4 of a string."""
-    text = str(data)
     text_len = len(text)
-    mask_len = text_len * 3 // 4
-    unmask_len = text_len - mask_len
-    prefix = text[0 : (unmask_len // 2)]
-    suffix_len = len(prefix) + (1 if unmask_len % 2 else 0)
+    masked_char_len = text_len * 3 // 4
+    unmasked_char_len = text_len - masked_char_len
+    prefix = text[0 : (unmasked_char_len // 2)]
+    suffix_len = len(prefix) + (1 if unmasked_char_len % 2 else 0)
     suffix = text[-(suffix_len):]
-    return f"{prefix}{'*' * mask_len}{suffix}"
+    return f"{prefix}{'*' * masked_char_len}{suffix}"
 
 
 class TomorrowioV4:
