@@ -96,6 +96,17 @@ def _timestep_to_key(timestep: str) -> str:
     return NOWCAST
 
 
+def mask(text: str) -> str:
+    """Mask 3/4 of a string."""
+    text_len = len(text)
+    masked_char_len = text_len * 3 // 4
+    unmasked_char_len = text_len - masked_char_len
+    prefix = text[0 : (unmasked_char_len // 2)]
+    suffix_len = len(prefix) + (1 if unmasked_char_len % 2 else 0)
+    suffix = text[-(suffix_len):]
+    return f"{prefix}{'*' * masked_char_len}{suffix}"
+
+
 class TomorrowioV4:
     """Async class to query the Tomorrow.io v4 API."""
 
@@ -153,8 +164,7 @@ class TomorrowioV4:
     @property
     def api_key_masked(self) -> str:
         """Return the API key with the first 3/4 masked."""
-        mask_len = len(self.api_key) * 3 // 4
-        return f"{'*' * mask_len}{self.api_key[mask_len:]}"
+        return mask(self.api_key)
 
     @staticmethod
     def convert_fields_to_measurements(fields: List[str]) -> List[str]:
@@ -206,16 +216,32 @@ class TomorrowioV4:
         if self._remaining_requests_in_second == 0:
             await asyncio.sleep(1)
 
+        payload = {**self._params, **params}
+
+        _LOGGER.debug(
+            "Sending the following payload to tomorrow.io: %s",
+            {
+                **payload,
+                "location": mask(payload["location"]),
+            },
+        )
+
         try:
             resp = await session.post(
                 self._get_url(),
                 headers=self._headers,
-                json={**self._params, **params},
+                json=payload,
                 compress=False,
             )
             resp_json = await resp.json(content_type=None)
         except ClientConnectionError as error:
             raise CantConnectException() from error
+
+        _LOGGER.debug(
+            "Received a response with status code %s and headers %s",
+            resp.status,
+            resp.headers,
+        )
 
         self._rate_limits = CIMultiDict(
             {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
