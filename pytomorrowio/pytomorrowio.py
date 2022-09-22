@@ -216,19 +216,6 @@ class TomorrowioV4:
         # This method is required for test mocks
         return BASE_URL_V4
 
-    def _strip_sensitive_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Strip sensitive data from a dict."""
-        masked_payload = data.copy()
-
-        for key, masked_val in (
-            ("apikey", self.api_key_masked),
-            ("location", self.location_masked),
-        ):
-            if masked_val in masked_payload:
-                masked_payload[key] = masked_val
-
-        return masked_payload
-
     async def _call_api(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Call tomorrow.io API."""
         if self._session:
