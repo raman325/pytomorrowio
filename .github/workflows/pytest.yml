@@ -27,7 +27,7 @@ jobs:
       run: |
         pytest tests
     - name: Upload coverage to Codecov
-      if: ${{ matrix.python-version == '3.11' }}
+      if: ${{ matrix.python-version == 3.11 }}
       run: |
         pytest tests -rxf -x -v -l --cov=./ --cov-report=xml > /dev/null
         coverage report --skip-covered
