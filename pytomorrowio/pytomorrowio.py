@@ -514,7 +514,9 @@ class TomorrowioV4:
         timesteps = [5, 15, 30, 60, 24 * 60]
         for index, timestep in enumerate(timesteps):
             try:
-                TomorrowioV4.forecast_nowcast(self, ["temperature"], timestep=timestep)
+                await TomorrowioV4.forecast_nowcast(
+                    self, ["temperature"], timestep=timestep
+                )
                 return timesteps[index:]
             except InvalidAPIKeyException as e:
                 if e.error_code == 403003:
