@@ -237,17 +237,17 @@ class TomorrowioV4:
         except ClientConnectionError as error:
             raise CantConnectException() from error
 
-        _LOGGER.debug(
-            "Received a response with status code %s and headers %s",
-            resp.status,
-            resp.headers,
-        )
-
         self._rate_limits = CIMultiDict(
             {k: int(v) for k, v in resp.headers.items() if "ratelimit" in k.lower()}
         )
 
         if resp.status in (HTTPStatus.OK, HTTPStatus.PARTIAL_CONTENT):
+            _LOGGER.debug(
+                "Received a response with status code %s and headers %s",
+                resp.status,
+                resp.headers,
+            )
+
             self._num_api_requests += 1
             for warning in set(
                 warning["message"] for warning in resp_json.get("warnings", [])
@@ -262,6 +262,14 @@ class TomorrowioV4:
                 )
 
             return resp_json
+
+        _LOGGER.debug(
+            "Received a response with status code %s, headers %s, and body: %s",
+            resp.status,
+            resp.headers,
+            resp_json,
+        )
+
         if resp.status == HTTPStatus.BAD_REQUEST:
             raise MalformedRequestException(resp_json, resp.headers)
         if resp.status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
