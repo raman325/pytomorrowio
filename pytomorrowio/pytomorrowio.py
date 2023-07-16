@@ -271,14 +271,14 @@ class TomorrowioV4:
         )
 
         if resp.status == HTTPStatus.BAD_REQUEST:
-            raise MalformedRequestException(resp_json, resp.headers)
+            raise MalformedRequestException(error=resp_json, headers=resp.headers)
         if resp.status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
-            raise InvalidAPIKeyException(resp_json, resp.headers)
+            raise InvalidAPIKeyException(error=resp_json, headers=resp.headers)
         if resp.status == HTTPStatus.TOO_MANY_REQUESTS:
-            raise RateLimitedException(resp_json, resp.headers)
+            raise RateLimitedException(error=resp_json, headers=resp.headers)
 
         resp.raise_for_status()
-        raise UnknownException(resp_json, resp.headers)
+        raise UnknownException(error=resp_json, headers=resp.headers)
 
     async def realtime(
         self,
@@ -507,6 +507,20 @@ class TomorrowioV4:
         )
         return {CURRENT: current, FORECASTS: forecasts}
 
+    async def discover_supported_timesteps(
+        self,
+    ) -> list[int]:
+        """Discover the valid timesteps for the API key."""
+        timesteps = [5, 15, 30, 60, 24 * 60]
+        for index, timestep in enumerate(timesteps):
+            try:
+                TomorrowioV4.forecast_nowcast(self, ["temperature"], timestep=timestep)
+                return timesteps[index:]
+            except InvalidAPIKeyException as e:
+                if e.error_code == 403003:
+                    continue
+        return []
+
 
 class TomorrowioV4Sync(TomorrowioV4):
     """Synchronous class to query the Tomorrow.io API."""
@@ -655,3 +669,10 @@ class TomorrowioV4Sync(TomorrowioV4):
             nowcast_timestep=nowcast_timestep,
             **additional_params,
         )
+
+    @async_to_sync
+    async def discover_supported_timesteps(
+        self,
+    ) -> list[int]:
+        """Discover the valid timesteps for the API key."""
+        return await super().discover_supported_timesteps()

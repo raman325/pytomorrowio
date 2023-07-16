@@ -4,6 +4,17 @@
 class TomorrowioException(Exception):
     """Base Exception class for pytomorrowio."""
 
+    def __init__(self, *args, **kwargs):
+        self.args = args
+
+        if error := kwargs.pop("error", None):
+            self.error_code: int = error.get("code")
+            self.error_type: str = error.get("type")
+            self.error_message: str = error.get("message")
+
+        if headers := kwargs.pop("headers", None):
+            self.headers: dict[str, str] = dict(headers)
+
 
 class MalformedRequestException(TomorrowioException):
     """Raised when request was malformed."""
