@@ -521,6 +521,7 @@ class TomorrowioV4:
             except InvalidAPIKeyException as e:
                 if e.error_code == 403003:
                     continue
+                raise e
         return []
 
 
